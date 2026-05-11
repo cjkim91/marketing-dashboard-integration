@@ -69,8 +69,36 @@ python scripts/fetch_meta_data.py \
 
 ## 다음 단계
 
-1. 전일자 GA4 JSON 생성
-2. 전일자 Meta JSON 생성
-3. `dashboard.json` 정규화
-4. HTML 대시보드 UI 구현
-5. GitHub Actions로 매일 자동 갱신
+1. GitHub Secrets 설정
+2. GitHub Actions로 매일 최근 90일 데이터 자동 생성
+3. 클라이언트 공유용 지표/필터 추가
+
+## 대시보드 데이터 생성
+
+로컬에서 최근 2주 데이터를 생성하려면:
+
+```bash
+GOOGLE_APPLICATION_CREDENTIALS=/Users/aiden/secrets/personal-gcp-sa.json \
+GA4_PROPERTY_ID=311666548 \
+python scripts/build_dashboard_data.py \
+  --since 2026-04-27 \
+  --until 2026-05-10 \
+  --output public/data/dashboard.json
+```
+
+생성되는 `public/data/dashboard.json`은 실제 성과 데이터이므로 Git에 커밋하지 않습니다.
+
+## GitHub Pages 자동 갱신 Secrets
+
+GitHub Actions에서 매일 데이터를 생성하려면 repo secrets에 아래 값을 넣습니다.
+
+```text
+GA4_PROPERTY_ID
+GOOGLE_APPLICATION_CREDENTIALS_JSON
+FACEBOOK_ACCESS_TOKEN
+AD_ACCOUNT_ID
+META_API_VERSION
+```
+
+`GOOGLE_APPLICATION_CREDENTIALS_JSON`에는 서비스 계정 JSON 파일 내용을 통째로 넣습니다.
+`META_API_VERSION`은 비워도 되며, 기본값은 스크립트의 `v21.0`입니다.

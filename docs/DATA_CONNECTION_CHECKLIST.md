@@ -84,3 +84,16 @@ public/data/
 ```
 
 `dashboard.json` should be a normalized summary file generated from the raw platform outputs. The HTML app should read from `dashboard.json` first, then use raw files only for drilldowns.
+
+## Build Dashboard Data
+
+```bash
+GOOGLE_APPLICATION_CREDENTIALS=/Users/aiden/secrets/personal-gcp-sa.json \
+GA4_PROPERTY_ID=311666548 \
+python scripts/build_dashboard_data.py \
+  --since YYYY-MM-DD \
+  --until YYYY-MM-DD \
+  --output public/data/dashboard.json
+```
+
+The generated file is ignored by git because it can contain client performance data.

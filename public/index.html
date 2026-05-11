@@ -3,233 +3,116 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Marketing Dashboard Integration</title>
-    <style>
-      :root {
-        color-scheme: light;
-        --bg: #f7f8fa;
-        --panel: #ffffff;
-        --text: #17202a;
-        --muted: #647184;
-        --line: #dbe1ea;
-        --green: #177245;
-        --blue: #225ea8;
-        --amber: #a56200;
-      }
-
-      * {
-        box-sizing: border-box;
-      }
-
-      body {
-        margin: 0;
-        background: var(--bg);
-        color: var(--text);
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        line-height: 1.55;
-      }
-
-      header {
-        padding: 40px 24px 24px;
-        background: #ffffff;
-        border-bottom: 1px solid var(--line);
-      }
-
-      main {
-        max-width: 1120px;
-        margin: 0 auto;
-        padding: 28px 24px 52px;
-      }
-
-      .inner {
-        max-width: 1120px;
-        margin: 0 auto;
-      }
-
-      h1 {
-        margin: 0 0 8px;
-        font-size: 34px;
-        line-height: 1.16;
-        letter-spacing: 0;
-      }
-
-      h2 {
-        margin: 0 0 16px;
-        font-size: 19px;
-        letter-spacing: 0;
-      }
-
-      p {
-        margin: 0;
-      }
-
-      .muted {
-        color: var(--muted);
-      }
-
-      .grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 16px;
-        margin-bottom: 22px;
-      }
-
-      .panel {
-        background: var(--panel);
-        border: 1px solid var(--line);
-        border-radius: 8px;
-        padding: 20px;
-      }
-
-      .status {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        margin-bottom: 12px;
-        font-weight: 700;
-      }
-
-      .dot {
-        width: 10px;
-        height: 10px;
-        border-radius: 50%;
-        background: var(--green);
-      }
-
-      dl {
-        display: grid;
-        grid-template-columns: 120px 1fr;
-        gap: 8px 14px;
-        margin: 0;
-      }
-
-      dt {
-        color: var(--muted);
-      }
-
-      dd {
-        margin: 0;
-        overflow-wrap: anywhere;
-      }
-
-      code {
-        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-        font-size: 0.94em;
-      }
-
-      pre {
-        margin: 0;
-        overflow-x: auto;
-        background: #111820;
-        color: #f5f7fb;
-        border-radius: 8px;
-        padding: 16px;
-        font-size: 13px;
-      }
-
-      ol {
-        margin: 0;
-        padding-left: 20px;
-      }
-
-      a {
-        color: var(--blue);
-      }
-
-      .stack {
-        display: grid;
-        gap: 16px;
-      }
-
-      .tag {
-        display: inline-block;
-        margin-top: 12px;
-        color: var(--amber);
-        font-weight: 700;
-      }
-
-      @media (max-width: 760px) {
-        h1 {
-          font-size: 28px;
-        }
-
-        .grid {
-          grid-template-columns: 1fr;
-        }
-
-        dl {
-          grid-template-columns: 1fr;
-        }
-      }
-    </style>
+    <title>Marketing Dashboard</title>
+    <link rel="stylesheet" href="./styles.css">
   </head>
   <body>
-    <header>
-      <div class="inner">
-        <h1>Marketing Dashboard Integration</h1>
-        <p class="muted">GA4와 Meta Marketing API 전일자 데이터 연동 상태와 대시보드 구축 준비 현황</p>
+    <header class="topbar">
+      <div>
+        <h1>Marketing Dashboard</h1>
+        <p id="dataStatus">데이터를 불러오는 중</p>
+      </div>
+      <div class="controls" aria-label="기간 설정">
+        <label>
+          시작일
+          <input id="startDate" type="date">
+        </label>
+        <label>
+          종료일
+          <input id="endDate" type="date">
+        </label>
+        <div class="segmented" role="group" aria-label="집계 단위">
+          <button class="active" data-granularity="week">주별</button>
+          <button data-granularity="day">일별</button>
+          <button data-granularity="month">월별</button>
+        </div>
       </div>
     </header>
 
+    <nav class="primary-tabs" aria-label="대시보드 페이지">
+      <button class="active" data-page="ga4">GA4 Funnel</button>
+      <button data-page="meta">Meta Ads</button>
+    </nav>
+
     <main>
-      <section class="grid" aria-label="연동 상태">
-        <article class="panel">
-          <div class="status"><span class="dot"></span>GA4 연결 확인 완료</div>
-          <dl>
-            <dt>Property ID</dt>
-            <dd><code>311666548</code></dd>
-            <dt>인증</dt>
-            <dd>기존 서비스 계정</dd>
-            <dt>확인 데이터</dt>
-            <dd>2026-05-10 기준 187 rows</dd>
-          </dl>
-        </article>
-
-        <article class="panel">
-          <div class="status"><span class="dot"></span>Meta 연결 확인 완료</div>
-          <dl>
-            <dt>Ad Account</dt>
-            <dd><code>act_10202125972212509</code></dd>
-            <dt>인증</dt>
-            <dd>기존 Marketing API config</dd>
-            <dt>확인 데이터</dt>
-            <dd>2026-05-10 기준 캠페인 3개</dd>
-          </dl>
-        </article>
+      <section id="emptyState" class="empty-state hidden">
+        <h2>대시보드 데이터가 아직 생성되지 않았습니다</h2>
+        <p><code>scripts/build_dashboard_data.py</code>를 실행해 <code>public/data/dashboard.json</code>을 생성하면 이 화면이 실제 데이터로 채워집니다.</p>
       </section>
 
-      <section class="grid" aria-label="실행 명령">
-        <article class="panel stack">
-          <h2>GA4 테스트 명령</h2>
-          <pre><code>GOOGLE_APPLICATION_CREDENTIALS=/Users/aiden/secrets/personal-gcp-sa.json \
-GA4_PROPERTY_ID=311666548 \
-python scripts/fetch_ga4_data.py \
-  --since 2026-05-10 \
-  --until 2026-05-10 \
-  --dimensions date,sessionSource,sessionMedium,sessionCampaignName \
-  --metrics sessions,totalUsers,conversions,totalRevenue</code></pre>
-        </article>
-
-        <article class="panel stack">
-          <h2>Meta 테스트 명령</h2>
-          <pre><code>python scripts/fetch_meta_data.py \
-  --action list_campaigns \
-  --since 2026-05-10 \
-  --until 2026-05-10</code></pre>
-        </article>
+      <section id="ga4Page" class="page">
+        <section class="summary-grid" id="ga4Summary"></section>
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <h2>유입 → 상세페이지 조회 → 구매 퍼널</h2>
+              <p>유입 경로별 세션, 상세페이지 조회, 구매 전환 흐름</p>
+            </div>
+          </div>
+          <div id="ga4FunnelChart" class="bar-list"></div>
+        </section>
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <h2>유입 경로별 퍼널 데이터</h2>
+              <p>선택한 기간과 집계 단위 기준</p>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>기간</th>
+                  <th>채널</th>
+                  <th>Source / Medium</th>
+                  <th>Campaign</th>
+                  <th class="num">유입</th>
+                  <th class="num">상세조회</th>
+                  <th class="num">구매</th>
+                  <th class="num">구매율</th>
+                  <th class="num">매출</th>
+                </tr>
+              </thead>
+              <tbody id="ga4Table"></tbody>
+            </table>
+          </div>
+        </section>
       </section>
 
-      <section class="panel stack">
-        <h2>다음 구현 순서</h2>
-        <ol>
-          <li>전일자 GA4 원천 JSON 생성</li>
-          <li>전일자 Meta 원천 JSON 생성</li>
-          <li>채널·캠페인 단위 <code>dashboard.json</code> 정규화</li>
-          <li>HTML 대시보드 UI 구현</li>
-          <li>GitHub Actions로 매일 자동 갱신</li>
-        </ol>
-        <p class="tag">현재 단계: 데이터 연동 확인 완료, 대시보드 구축 준비 완료</p>
+      <section id="metaPage" class="page hidden">
+        <section class="summary-grid" id="metaSummary"></section>
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <h2>Meta Ads Overview</h2>
+              <p>캠페인, 광고세트, 광고, Placement 레벨 성과</p>
+            </div>
+            <div class="segmented compact" role="group" aria-label="Meta 레벨">
+              <button class="active" data-meta-level="campaigns">캠페인</button>
+              <button data-meta-level="adsets">광고세트</button>
+              <button data-meta-level="ads">광고</button>
+              <button data-meta-level="placements">Placement</button>
+            </div>
+          </div>
+          <div id="metaTrendChart" class="bar-list"></div>
+        </section>
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <h2 id="metaTableTitle">캠페인별 성과</h2>
+              <p>전 기간 대비 증감은 같은 엔티티의 직전 일·주·월과 비교</p>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead id="metaTableHead"></thead>
+              <tbody id="metaTable"></tbody>
+            </table>
+          </div>
+        </section>
       </section>
     </main>
+
+    <script src="./app.js"></script>
   </body>
 </html>
