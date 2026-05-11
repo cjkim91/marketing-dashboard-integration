@@ -31,13 +31,11 @@ jobs:
         uses: actions/configure-pages@v5
 
       - name: Setup Python
-        if: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS_JSON != '' && secrets.FACEBOOK_ACCESS_TOKEN != '' && secrets.AD_ACCOUNT_ID != '' }}
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
       - name: Build dashboard data
-        if: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS_JSON != '' && secrets.FACEBOOK_ACCESS_TOKEN != '' && secrets.AD_ACCOUNT_ID != '' }}
         env:
           GOOGLE_APPLICATION_CREDENTIALS_JSON: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS_JSON }}
           GA4_PROPERTY_ID: ${{ secrets.GA4_PROPERTY_ID }}
@@ -45,6 +43,10 @@ jobs:
           AD_ACCOUNT_ID: ${{ secrets.AD_ACCOUNT_ID }}
           META_API_VERSION: ${{ secrets.META_API_VERSION }}
         run: |
+          if [ -z "$GOOGLE_APPLICATION_CREDENTIALS_JSON" ] || [ -z "$FACEBOOK_ACCESS_TOKEN" ] || [ -z "$AD_ACCOUNT_ID" ]; then
+            echo "Dashboard data secrets are not configured. Deploying UI without dashboard.json."
+            exit 0
+          fi
           python -m pip install -r requirements.txt
           printf '%s' "$GOOGLE_APPLICATION_CREDENTIALS_JSON" > "$RUNNER_TEMP/ga4-service-account.json"
           export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/ga4-service-account.json"
