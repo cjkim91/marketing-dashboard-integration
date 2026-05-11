@@ -11,5 +11,4 @@ __pycache__/
 modern-spirit-*.json
 
 # Generated dashboard data
-public/data/*.json
-!public/data/.gitkeep
+!public/data/dashboard.json
