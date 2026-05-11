@@ -3,16 +3,17 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Marketing Dashboard</title>
+    <title>Marketing Command Center</title>
     <link rel="stylesheet" href="./styles.css">
   </head>
   <body>
     <header class="topbar">
-      <div>
-        <h1>Marketing Dashboard</h1>
-        <p id="dataStatus">데이터를 불러오는 중</p>
+      <div class="title-block">
+        <p class="eyebrow">Marketing Command Center</p>
+        <h1>GA4 Funnel & Meta Ads Dashboard</h1>
+        <p id="dataStatus" class="freshness">데이터를 불러오는 중</p>
       </div>
-      <div class="controls" aria-label="기간 설정">
+      <div class="control-bar" aria-label="대시보드 필터">
         <label>
           시작일
           <input id="startDate" type="date">
@@ -36,26 +37,54 @@
 
     <main>
       <section id="emptyState" class="empty-state hidden">
-        <h2>대시보드 데이터가 아직 생성되지 않았습니다</h2>
-        <p><code>scripts/build_dashboard_data.py</code>를 실행해 <code>public/data/dashboard.json</code>을 생성하면 이 화면이 실제 데이터로 채워집니다.</p>
+        <h2>대시보드 데이터가 없습니다</h2>
+        <p><code>public/data/dashboard.json</code>을 생성하거나 배포에 포함하면 실제 데이터가 표시됩니다.</p>
       </section>
 
       <section id="ga4Page" class="page">
-        <section class="summary-grid" id="ga4Summary"></section>
+        <section id="ga4Summary" class="kpi-grid"></section>
+
         <section class="panel">
           <div class="panel-head">
             <div>
-              <h2>유입 → 상세페이지 조회 → 구매 퍼널</h2>
-              <p>유입 경로별 세션, 상세페이지 조회, 구매 전환 흐름</p>
+              <p class="section-label">Trend</p>
+              <h2>퍼널 지표 변화</h2>
+              <p>유입, 상세페이지 조회, 구매, 매출의 기간별 흐름</p>
             </div>
           </div>
-          <div id="ga4FunnelChart" class="bar-list"></div>
+          <div id="ga4Trend" class="chart-grid"></div>
         </section>
+
+        <section class="diagnostic-grid">
+          <article class="panel">
+            <div class="panel-head">
+              <div>
+                <p class="section-label">Funnel</p>
+                <h2>전체 퍼널</h2>
+                <p>유입 → 상세페이지 조회 → 구매</p>
+              </div>
+            </div>
+            <div id="ga4Funnel" class="funnel"></div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-head">
+              <div>
+                <p class="section-label">Channel</p>
+                <h2>유입 경로별 구매</h2>
+                <p>채널별 구매와 구매율 비교</p>
+              </div>
+            </div>
+            <div id="ga4ChannelBars" class="bar-list"></div>
+          </article>
+        </section>
+
         <section class="panel">
           <div class="panel-head">
             <div>
-              <h2>유입 경로별 퍼널 데이터</h2>
-              <p>선택한 기간과 집계 단위 기준</p>
+              <p class="section-label">Detail</p>
+              <h2>유입 경로별 퍼널 테이블</h2>
+              <p>Source, Medium, Campaign 단위 상세 데이터</p>
             </div>
           </div>
           <div class="table-wrap">
@@ -69,6 +98,7 @@
                   <th class="num">유입</th>
                   <th class="num">상세조회</th>
                   <th class="num">구매</th>
+                  <th class="num">상세조회율</th>
                   <th class="num">구매율</th>
                   <th class="num">매출</th>
                 </tr>
@@ -80,12 +110,25 @@
       </section>
 
       <section id="metaPage" class="page hidden">
-        <section class="summary-grid" id="metaSummary"></section>
+        <section id="metaSummary" class="kpi-grid"></section>
+
         <section class="panel">
           <div class="panel-head">
             <div>
-              <h2>Meta Ads Overview</h2>
-              <p>캠페인, 광고세트, 광고, Placement 레벨 성과</p>
+              <p class="section-label">Trend</p>
+              <h2>Meta 핵심 지표 변화</h2>
+              <p>비용, 전환, CPA, ROAS의 기간별 흐름</p>
+            </div>
+          </div>
+          <div id="metaTrend" class="chart-grid"></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head with-tabs">
+            <div>
+              <p class="section-label">Drilldown</p>
+              <h2 id="metaLevelTitle">캠페인 성과</h2>
+              <p>계층별 성과와 전 기간 대비 증감</p>
             </div>
             <div class="segmented compact" role="group" aria-label="Meta 레벨">
               <button class="active" data-meta-level="campaigns">캠페인</button>
@@ -94,13 +137,15 @@
               <button data-meta-level="placements">Placement</button>
             </div>
           </div>
-          <div id="metaTrendChart" class="bar-list"></div>
+          <div id="metaLevelBars" class="bar-list compare"></div>
         </section>
+
         <section class="panel">
           <div class="panel-head">
             <div>
-              <h2 id="metaTableTitle">캠페인별 성과</h2>
-              <p>전 기간 대비 증감은 같은 엔티티의 직전 일·주·월과 비교</p>
+              <p class="section-label">Detail</p>
+              <h2 id="metaTableTitle">캠페인별 성과 테이블</h2>
+              <p>Placement 탭에서는 광고별 지면 성과를 전 기간 대비 비교합니다</p>
             </div>
           </div>
           <div class="table-wrap">

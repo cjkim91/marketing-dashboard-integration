@@ -7,25 +7,19 @@ const state = {
   endDate: "",
 };
 
-const metricLabels = {
-  impressions: "노출",
-  clicks: "클릭",
-  conversions: "전환",
-  spend: "비용",
-  ctr: "CTR",
-  cvr: "CVR",
-  roas: "ROAS",
-  sessions: "유입",
-  detail_views: "상세조회",
-  purchases: "구매",
-  revenue: "매출",
-};
-
 const metaLevelLabels = {
   campaigns: "캠페인",
   adsets: "광고세트",
   ads: "광고",
   placements: "Placement",
+};
+
+const chartColors = {
+  primary: "#1F5F99",
+  positive: "#177245",
+  negative: "#B33A3A",
+  warning: "#9B6400",
+  neutral: "#9AA8BA",
 };
 
 async function init() {
@@ -36,7 +30,10 @@ async function init() {
     state.data = await response.json();
     state.startDate = state.data.period?.since || "";
     state.endDate = state.data.period?.until || "";
-    document.getElementById("dataStatus").textContent = `생성 시각: ${formatGeneratedAt(state.data.generated_at)}`;
+    document.getElementById("dataStatus").textContent = [
+      `기간 ${state.startDate} ~ ${state.endDate}`,
+      `생성 ${formatGeneratedAt(state.data.generated_at)}`,
+    ].join(" · ");
     setDateInputs();
     render();
   } catch (error) {
@@ -104,6 +101,51 @@ function render() {
 
 function renderGa4() {
   const rows = filterByDate(state.data.ga4?.rows || []);
+  const byPeriod = aggregateRows(rows, ["period"], {
+    sessions: "sum",
+    users: "sum",
+    detail_views: "sum",
+    purchases: "sum",
+    revenue: "sum",
+  }).sort(sortPeriodAsc);
+  byPeriod.forEach(addGa4Rates);
+
+  const totals = sumRows(byPeriod, ["sessions", "users", "detail_views", "purchases", "revenue"]);
+  addGa4Rates(totals);
+  const current = byPeriod[byPeriod.length - 1] || {};
+  const previous = byPeriod[byPeriod.length - 2] || null;
+
+  renderKpis("ga4Summary", [
+    kpi("유입", totals.sessions, "sessions", current.sessions, previous?.sessions, byPeriod, "sessions", fmtInt),
+    kpi("상세조회", totals.detail_views, "view_item", current.detail_views, previous?.detail_views, byPeriod, "detail_views", fmtInt),
+    kpi("구매", totals.purchases, "purchase", current.purchases, previous?.purchases, byPeriod, "purchases", fmtInt),
+    kpi("매출", totals.revenue, "purchase revenue", current.revenue, previous?.revenue, byPeriod, "revenue", fmtMoney),
+  ]);
+
+  renderChartGrid("ga4Trend", [
+    lineChartCard("유입 추이", byPeriod, "period", "sessions", fmtInt),
+    lineChartCard("상세조회 추이", byPeriod, "period", "detail_views", fmtInt),
+    lineChartCard("구매 추이", byPeriod, "period", "purchases", fmtInt),
+    lineChartCard("매출 추이", byPeriod, "period", "revenue", fmtMoney),
+  ]);
+
+  renderFunnel("ga4Funnel", [
+    ["유입", totals.sessions, "sessions"],
+    ["상세페이지 조회", totals.detail_views, "view_item"],
+    ["구매", totals.purchases, "purchase only"],
+  ]);
+
+  const channelRows = aggregateRows(rows, ["channel"], {
+    sessions: "sum",
+    detail_views: "sum",
+    purchases: "sum",
+    revenue: "sum",
+  }).sort((a, b) => b.purchases - a.purchases || b.sessions - a.sessions);
+  channelRows.forEach(addGa4Rates);
+  renderBars("ga4ChannelBars", channelRows.slice(0, 10), "channel", "purchases", (row) => {
+    return `${fmtInt(row.purchases)} 구매 · ${fmtPct(row.purchase_rate)} · ${fmtInt(row.sessions)} 유입`;
+  });
+
   const grouped = aggregateRows(rows, ["period", "channel", "source", "medium", "campaign"], {
     sessions: "sum",
     users: "sum",
@@ -112,36 +154,9 @@ function renderGa4() {
     revenue: "sum",
   });
   grouped.forEach(addGa4Rates);
+  grouped.sort((a, b) => b.period.localeCompare(a.period) || b.purchases - a.purchases || b.sessions - a.sessions);
 
-  const totals = sumRows(grouped, ["sessions", "users", "detail_views", "purchases", "revenue"]);
-  addGa4Rates(totals);
-  renderSummary("ga4Summary", [
-    ["유입", fmtInt(totals.sessions), `${fmtInt(totals.users)} users`],
-    ["상세페이지 조회", fmtInt(totals.detail_views), `${fmtPct(totals.detail_view_rate)} / 유입`],
-    ["구매", fmtInt(totals.purchases), `${fmtPct(totals.purchase_rate)} / 유입`],
-    ["매출", fmtMoney(totals.revenue), "purchase revenue"],
-  ]);
-
-  const channelRows = aggregateRows(rows, ["channel"], {
-    sessions: "sum",
-    detail_views: "sum",
-    purchases: "sum",
-    revenue: "sum",
-  }).sort((a, b) => b.sessions - a.sessions);
-  channelRows.forEach(addGa4Rates);
-  renderBars("ga4FunnelChart", channelRows.slice(0, 8), "channel", "sessions", (row) => {
-    return `${fmtInt(row.sessions)} 유입 · ${fmtInt(row.detail_views)} 상세 · ${fmtInt(row.purchases)} 구매`;
-  });
-
-  const sorted = grouped
-    .filter((row) => row.sessions || row.detail_views || row.purchases)
-    .sort((a, b) => {
-      if (a.period !== b.period) return b.period.localeCompare(a.period);
-      return b.sessions - a.sessions;
-    })
-    .slice(0, 250);
-
-  document.getElementById("ga4Table").innerHTML = sorted.map((row) => `
+  document.getElementById("ga4Table").innerHTML = grouped.slice(0, 300).map((row) => `
     <tr>
       <td>${escapeHtml(row.period)}</td>
       <td>${escapeHtml(row.channel)}</td>
@@ -150,6 +165,7 @@ function renderGa4() {
       <td class="num">${fmtInt(row.sessions)}</td>
       <td class="num">${fmtInt(row.detail_views)}</td>
       <td class="num">${fmtInt(row.purchases)}</td>
+      <td class="num">${fmtPct(row.detail_view_rate)}</td>
       <td class="num">${fmtPct(row.purchase_rate)}</td>
       <td class="num">${fmtMoney(row.revenue)}</td>
     </tr>
@@ -157,9 +173,37 @@ function renderGa4() {
 }
 
 function renderMeta() {
-  const rows = filterByDate(state.data.meta?.[state.metaLevel] || []);
+  const rawRows = filterByDate(state.data.meta?.[state.metaLevel] || []);
   const keys = metaKeys(state.metaLevel);
-  const grouped = aggregateRows(rows, ["period", ...keys], {
+  const byPeriod = aggregateRows(rawRows, ["period"], {
+    impressions: "sum",
+    clicks: "sum",
+    conversions: "sum",
+    spend: "sum",
+    conversion_value: "sum",
+  }).sort(sortPeriodAsc);
+  byPeriod.forEach(addMetaRates);
+
+  const totals = sumRows(byPeriod, ["impressions", "clicks", "conversions", "spend", "conversion_value"]);
+  addMetaRates(totals);
+  const current = byPeriod[byPeriod.length - 1] || {};
+  const previous = byPeriod[byPeriod.length - 2] || null;
+
+  renderKpis("metaSummary", [
+    kpi("비용", totals.spend, "Spend", current.spend, previous?.spend, byPeriod, "spend", fmtMoney),
+    kpi("전환", totals.conversions, "Conversions", current.conversions, previous?.conversions, byPeriod, "conversions", fmtInt),
+    kpi("CTR", totals.ctr, "Clicks / Impressions", current.ctr, previous?.ctr, byPeriod, "ctr", fmtPct, true),
+    kpi("ROAS", totals.roas, "Value / Spend", current.roas, previous?.roas, byPeriod, "roas", fmtDecimal, true),
+  ]);
+
+  renderChartGrid("metaTrend", [
+    lineChartCard("비용 추이", byPeriod, "period", "spend", fmtMoney),
+    lineChartCard("전환 추이", byPeriod, "period", "conversions", fmtInt),
+    lineChartCard("CPA 추이", byPeriod.map((row) => ({ ...row, cpa: row.conversions ? row.spend / row.conversions : 0 })), "period", "cpa", fmtMoney),
+    lineChartCard("ROAS 추이", byPeriod, "period", "roas", fmtDecimal),
+  ]);
+
+  const grouped = aggregateRows(rawRows, ["period", ...keys], {
     impressions: "sum",
     clicks: "sum",
     conversions: "sum",
@@ -169,30 +213,141 @@ function renderMeta() {
   grouped.forEach(addMetaRates);
   const previousMap = buildPreviousMap(grouped, keys);
 
-  const totals = sumRows(grouped, ["impressions", "clicks", "conversions", "spend", "conversion_value"]);
-  addMetaRates(totals);
-  renderSummary("metaSummary", [
-    ["노출", fmtInt(totals.impressions), "Meta delivery"],
-    ["클릭", fmtInt(totals.clicks), `${fmtPct(totals.ctr)} CTR`],
-    ["전환", fmtInt(totals.conversions), `${fmtPct(totals.cvr)} CVR`],
-    ["비용", fmtMoney(totals.spend), `${fmtDecimal(totals.roas)} ROAS`],
-  ]);
+  document.getElementById("metaLevelTitle").textContent = `${metaLevelLabels[state.metaLevel]} 성과`;
+  document.getElementById("metaTableTitle").textContent = `${metaLevelLabels[state.metaLevel]}별 상세 테이블`;
 
-  const trendRows = aggregateRows(rows, ["period"], {
-    spend: "sum",
-    conversions: "sum",
-    clicks: "sum",
-    impressions: "sum",
-    conversion_value: "sum",
-  }).sort((a, b) => a.period.localeCompare(b.period));
-  trendRows.forEach(addMetaRates);
-  renderBars("metaTrendChart", trendRows, "period", "spend", (row) => {
-    return `${fmtMoney(row.spend)} · ${fmtInt(row.conversions)} 전환 · ${fmtPct(row.ctr)} CTR`;
+  const latestPeriod = byPeriod[byPeriod.length - 1]?.period;
+  const latestRows = grouped
+    .filter((row) => row.period === latestPeriod)
+    .sort((a, b) => b.spend - a.spend)
+    .slice(0, 12)
+    .map((row) => ({ ...row, display_label: metaDisplayLabel(row) }));
+  renderBars("metaLevelBars", latestRows, "display_label", "spend", (row) => {
+    const prev = previousMap.get(previousKey(row, keys));
+    return `${fmtMoney(row.spend)}${delta(row.spend, prev?.spend)} · ${fmtInt(row.conversions)} 전환 · ${fmtDecimal(row.roas)} ROAS`;
   });
 
-  document.getElementById("metaTableTitle").textContent = `${metaLevelLabels[state.metaLevel]}별 성과`;
   renderMetaHead(keys);
   renderMetaTable(grouped, previousMap, keys);
+}
+
+function kpi(label, value, helper, current, previous, rows, metric, formatter, pointDiff = false) {
+  return { label, value, helper, current, previous, rows, metric, formatter, pointDiff };
+}
+
+function renderKpis(id, items) {
+  document.getElementById(id).innerHTML = items.map((item) => `
+    <article class="kpi-card">
+      <div class="kpi-label">${escapeHtml(item.label)}</div>
+      <div class="kpi-value">${escapeHtml(item.formatter(item.value))}</div>
+      <div class="kpi-meta">
+        <span>${escapeHtml(item.helper)}</span>
+        ${delta(item.current, item.previous, item.pointDiff)}
+      </div>
+      ${sparkline(item.rows, item.metric)}
+    </article>
+  `).join("");
+}
+
+function renderChartGrid(id, cards) {
+  document.getElementById(id).innerHTML = cards.join("");
+}
+
+function lineChartCard(title, rows, labelKey, valueKey, formatter) {
+  const latest = rows[rows.length - 1];
+  return `
+    <article class="chart-card">
+      <div class="chart-title">
+        <span>${escapeHtml(title)}</span>
+        <span>${latest ? escapeHtml(formatter(latest[valueKey])) : "-"}</span>
+      </div>
+      ${lineChart(rows, labelKey, valueKey)}
+    </article>
+  `;
+}
+
+function sparkline(rows, metric) {
+  if (!rows.length) return `<svg class="sparkline" viewBox="0 0 160 34" aria-hidden="true"></svg>`;
+  const points = chartPoints(rows, metric, 160, 34, 3);
+  const area = `0,34 ${points} 160,34`;
+  return `
+    <svg class="sparkline" viewBox="0 0 160 34" aria-hidden="true">
+      <polygon class="area" points="${area}"></polygon>
+      <polyline points="${points}"></polyline>
+    </svg>
+  `;
+}
+
+function lineChart(rows, labelKey, valueKey) {
+  const width = 520;
+  const height = 180;
+  const points = chartPoints(rows, valueKey, width, height, 18);
+  const circles = points.split(" ").map((point) => {
+    const [x, y] = point.split(",");
+    return `<circle class="point" cx="${x}" cy="${y}" r="3"></circle>`;
+  }).join("");
+  const first = rows[0]?.[labelKey] || "";
+  const last = rows[rows.length - 1]?.[labelKey] || "";
+  return `
+    <svg class="line-chart" viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHtml(valueKey)} trend">
+      <line class="grid-line" x1="0" y1="42" x2="${width}" y2="42"></line>
+      <line class="grid-line" x1="0" y1="92" x2="${width}" y2="92"></line>
+      <line class="grid-line" x1="0" y1="142" x2="${width}" y2="142"></line>
+      <polyline points="${points}"></polyline>
+      ${circles}
+      <text x="0" y="176" fill="#647184" font-size="12">${escapeHtml(first)}</text>
+      <text x="${width}" y="176" text-anchor="end" fill="#647184" font-size="12">${escapeHtml(last)}</text>
+    </svg>
+  `;
+}
+
+function chartPoints(rows, metric, width, height, pad) {
+  if (rows.length === 1) {
+    const y = height / 2;
+    return `${pad},${y} ${width - pad},${y}`;
+  }
+  const values = rows.map((row) => Number(row[metric] || 0));
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+  return values.map((value, index) => {
+    const x = pad + index * ((width - pad * 2) / (values.length - 1));
+    const y = pad + (1 - ((value - min) / range)) * (height - pad * 2);
+    return `${round(x)},${round(y)}`;
+  }).join(" ");
+}
+
+function renderFunnel(id, steps) {
+  const max = Math.max(...steps.map((step) => Number(step[1] || 0)), 1);
+  document.getElementById(id).innerHTML = steps.map(([label, value, helper]) => {
+    const width = Math.max(Number(value || 0) / max * 100, 1);
+    return `
+      <div class="funnel-step">
+        <div class="funnel-head">
+          <span>${escapeHtml(label)}</span>
+          <span>${fmtInt(value)} · ${escapeHtml(helper)}</span>
+        </div>
+        <div class="funnel-track">
+          <div class="funnel-fill" style="width:${width}%"></div>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+function renderBars(id, rows, labelKey, valueKey, valueLabel) {
+  const max = Math.max(...rows.map((row) => Number(row[valueKey] || 0)), 1);
+  document.getElementById(id).innerHTML = rows.map((row) => {
+    const width = Math.max(Number(row[valueKey] || 0) / max * 100, 1);
+    const label = row[labelKey] || "-";
+    return `
+      <div class="bar-row">
+        <div class="bar-label" title="${escapeHtml(label)}">${escapeHtml(label)}</div>
+        <div class="bar-track"><div class="bar-fill" style="width:${width}%"></div></div>
+        <div class="bar-value">${valueLabel(row)}</div>
+      </div>
+    `;
+  }).join("");
 }
 
 function metaKeys(level) {
@@ -214,6 +369,7 @@ function renderMetaHead(keys) {
       <th class="num">비용</th>
       <th class="num">CTR</th>
       <th class="num">CVR</th>
+      <th class="num">CPA</th>
       <th class="num">ROAS</th>
     </tr>
   `;
@@ -222,15 +378,14 @@ function renderMetaHead(keys) {
 function renderMetaTable(grouped, previousMap, keys) {
   const sorted = grouped
     .filter((row) => row.impressions || row.spend)
-    .sort((a, b) => {
-      if (a.period !== b.period) return b.period.localeCompare(a.period);
-      return b.spend - a.spend;
-    })
-    .slice(0, 300);
+    .sort((a, b) => b.period.localeCompare(a.period) || b.spend - a.spend)
+    .slice(0, 400);
 
   document.getElementById("metaTable").innerHTML = sorted.map((row) => {
     const previous = previousMap.get(previousKey(row, keys));
     const entityCells = keys.map((key) => `<td>${escapeHtml(row[key] || "-")}</td>`).join("");
+    const cpa = row.conversions ? row.spend / row.conversions : 0;
+    const previousCpa = previous?.conversions ? previous.spend / previous.conversions : null;
     return `
       <tr>
         <td>${escapeHtml(row.period)}</td>
@@ -241,6 +396,7 @@ function renderMetaTable(grouped, previousMap, keys) {
         <td class="num">${fmtMoney(row.spend)}${delta(row.spend, previous?.spend)}</td>
         <td class="num">${fmtPct(row.ctr)}${delta(row.ctr, previous?.ctr, true)}</td>
         <td class="num">${fmtPct(row.cvr)}${delta(row.cvr, previous?.cvr, true)}</td>
+        <td class="num">${fmtMoney(cpa)}${delta(cpa, previousCpa)}</td>
         <td class="num">${fmtDecimal(row.roas)}${delta(row.roas, previous?.roas, true)}</td>
       </tr>
     `;
@@ -299,7 +455,7 @@ function buildPreviousMap(rows, keys) {
   });
   const previous = new Map();
   byEntity.forEach((items) => {
-    items.sort((a, b) => a.period.localeCompare(b.period));
+    items.sort(sortPeriodAsc);
     for (let i = 1; i < items.length; i += 1) {
       previous.set(previousKey(items[i], keys), items[i - 1]);
     }
@@ -343,28 +499,8 @@ function parseLocalDate(value) {
   return new Date(year, month - 1, day);
 }
 
-function renderSummary(id, items) {
-  document.getElementById(id).innerHTML = items.map(([label, value, helper]) => `
-    <article class="metric-card">
-      <span>${escapeHtml(label)}</span>
-      <strong>${escapeHtml(value)}</strong>
-      <small>${escapeHtml(helper)}</small>
-    </article>
-  `).join("");
-}
-
-function renderBars(id, rows, labelKey, valueKey, valueLabel) {
-  const max = Math.max(...rows.map((row) => Number(row[valueKey] || 0)), 1);
-  document.getElementById(id).innerHTML = rows.map((row) => {
-    const width = Math.max(Number(row[valueKey] || 0) / max * 100, 1);
-    return `
-      <div class="bar-row">
-        <div class="bar-label" title="${escapeHtml(row[labelKey] || "-")}">${escapeHtml(row[labelKey] || "-")}</div>
-        <div class="bar-track"><div class="bar-fill" style="width:${width}%"></div></div>
-        <div class="bar-value">${escapeHtml(valueLabel(row))}</div>
-      </div>
-    `;
-  }).join("");
+function sortPeriodAsc(a, b) {
+  return a.period.localeCompare(b.period);
 }
 
 function delta(current, previous, pointDiff = false) {
@@ -387,6 +523,13 @@ function metaHeaderLabel(key) {
   }[key] || key;
 }
 
+function metaDisplayLabel(row) {
+  if (state.metaLevel === "placements") return `${row.ad_name || "-"} · ${row.placement || "-"}`;
+  if (state.metaLevel === "ads") return row.ad_name || "-";
+  if (state.metaLevel === "adsets") return row.adset_name || "-";
+  return row.campaign_name || "-";
+}
+
 function fmtInt(value) {
   return Math.round(Number(value || 0)).toLocaleString("ko-KR");
 }
@@ -406,6 +549,10 @@ function fmtDecimal(value) {
 function formatGeneratedAt(value) {
   if (!value) return "-";
   return new Date(value).toLocaleString("ko-KR");
+}
+
+function round(value) {
+  return Math.round(value * 100) / 100;
 }
 
 function escapeHtml(value) {
