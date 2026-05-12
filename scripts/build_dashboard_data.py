@@ -11,8 +11,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
-from collections import defaultdict
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -26,10 +25,28 @@ from fetch_meta_data import (
 )
 
 
+# ── GA4 report definitions ────────────────────────────────────────────────────
+
 GA4_DIMENSIONS = ["date", "sessionSource", "sessionMedium", "sessionCampaignName"]
-GA4_TRAFFIC_METRICS = ["sessions", "totalUsers", "totalRevenue"]
+GA4_TRAFFIC_METRICS = [
+    "sessions", "totalUsers", "newUsers", "totalRevenue",
+    "bounceRate", "averageSessionDuration", "engagementRate",
+]
 GA4_EVENT_METRICS = ["eventCount", "totalRevenue"]
 
+GA4_DEVICE_DIMENSIONS = ["date", "deviceCategory"]
+GA4_DEVICE_METRICS = [
+    "sessions", "totalUsers", "newUsers", "totalRevenue",
+    "bounceRate", "averageSessionDuration",
+]
+
+GA4_LANDING_DIMENSIONS = ["date", "landingPage"]
+GA4_LANDING_METRICS = [
+    "sessions", "totalUsers", "bounceRate", "averageSessionDuration", "totalRevenue",
+]
+
+
+# ── CLI ───────────────────────────────────────────────────────────────────────
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Build marketing dashboard JSON.")
@@ -42,9 +59,7 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def ymd(value: str) -> str:
-    return datetime.strptime(value, "%Y-%m-%d").strftime("%Y%m%d")
-
+# ── GA4 helpers ───────────────────────────────────────────────────────────────
 
 def display_date(value: str) -> str:
     if "-" in value:
@@ -59,6 +74,14 @@ def key_from_row(row: dict[str, Any]) -> tuple[str, str, str, str]:
         str(row.get("sessionMedium", "(not set)")),
         str(row.get("sessionCampaignName", "(not set)")),
     )
+
+
+def device_key(row: dict[str, Any]) -> tuple[str, str]:
+    return (display_date(str(row.get("date", ""))), str(row.get("deviceCategory", "unknown")))
+
+
+def landing_key(row: dict[str, Any]) -> tuple[str, str]:
+    return (display_date(str(row.get("date", ""))), str(row.get("landingPage", "(not set)")))
 
 
 def channel_name(source: str, medium: str) -> str:
@@ -88,6 +111,7 @@ def run_ga4_report(
     dimensions: list[str],
     metrics: list[str],
     event_name: str | None = None,
+    limit: int = 100000,
 ) -> list[dict[str, Any]]:
     (
         BetaAnalyticsDataClient,
@@ -97,19 +121,21 @@ def run_ga4_report(
         RunReportRequest,
         Credentials,
     ) = _load_client()
-
     from google.analytics.data_v1beta.types import Filter, FilterExpression
 
     credentials = _build_oauth_credentials(Credentials)
-    client = BetaAnalyticsDataClient(credentials=credentials) if credentials else BetaAnalyticsDataClient()
+    client = (
+        BetaAnalyticsDataClient(credentials=credentials)
+        if credentials
+        else BetaAnalyticsDataClient()
+    )
     request = RunReportRequest(
         property=f"properties/{property_id}",
         date_ranges=[DateRange(start_date=since, end_date=until)],
         dimensions=[Dimension(name=name) for name in dimensions],
         metrics=[Metric(name=name) for name in metrics],
-        limit=100000,
+        limit=limit,
     )
-
     if event_name:
         request.dimension_filter = FilterExpression(
             filter=Filter(
@@ -120,7 +146,6 @@ def run_ga4_report(
                 ),
             )
         )
-
     response = client.run_report(request)
     rows: list[dict[str, Any]] = []
     for row in response.rows:
@@ -133,79 +158,13 @@ def run_ga4_report(
     return rows
 
 
-def build_ga4(property_id: str, since: str, until: str) -> dict[str, Any]:
-    traffic_rows = run_ga4_report(
-        property_id,
-        since,
-        until,
-        GA4_DIMENSIONS,
-        GA4_TRAFFIC_METRICS,
-    )
-    detail_rows = run_ga4_report(
-        property_id,
-        since,
-        until,
-        GA4_DIMENSIONS,
-        GA4_EVENT_METRICS,
-        event_name="view_item",
-    )
-    purchase_rows = run_ga4_report(
-        property_id,
-        since,
-        until,
-        GA4_DIMENSIONS,
-        GA4_EVENT_METRICS,
-        event_name="purchase",
-    )
+def _bounce_pct(row: dict[str, Any]) -> float:
+    """GA4 bounceRate is returned as 0–1 decimal; convert to 0–100 %."""
+    return round(float(row.get("bounceRate", 0) or 0) * 100, 2)
 
-    merged: dict[tuple[str, str, str, str], dict[str, Any]] = {}
 
-    for row in traffic_rows:
-        key = key_from_row(row)
-        date_value, source, medium, campaign = key
-        merged[key] = {
-            "date": date_value,
-            "source": source,
-            "medium": medium,
-            "campaign": campaign,
-            "channel": channel_name(source, medium),
-            "sessions": int(row.get("sessions", 0) or 0),
-            "users": int(row.get("totalUsers", 0) or 0),
-            "detail_views": 0,
-            "purchases": 0,
-            "revenue": float(row.get("totalRevenue", 0) or 0),
-        }
-
-    for row in detail_rows:
-        key = key_from_row(row)
-        if key not in merged:
-            date_value, source, medium, campaign = key
-            merged[key] = empty_ga4_row(date_value, source, medium, campaign)
-        merged[key]["detail_views"] += int(row.get("eventCount", 0) or 0)
-
-    for row in purchase_rows:
-        key = key_from_row(row)
-        if key not in merged:
-            date_value, source, medium, campaign = key
-            merged[key] = empty_ga4_row(date_value, source, medium, campaign)
-        merged[key]["purchases"] += int(row.get("eventCount", 0) or 0)
-        purchase_revenue = float(row.get("totalRevenue", 0) or 0)
-        if purchase_revenue:
-            merged[key]["revenue"] = purchase_revenue
-
-    rows = sorted(merged.values(), key=lambda item: (item["date"], -item["sessions"]))
-    for row in rows:
-        add_ga4_rates(row)
-
-    return {
-        "property_id": property_id,
-        "funnel_definition": {
-            "traffic": "sessions",
-            "detail_view": "GA4 eventName=view_item",
-            "purchase": "GA4 eventName=purchase",
-        },
-        "rows": rows,
-    }
+def _avg_duration(row: dict[str, Any]) -> float:
+    return round(float(row.get("averageSessionDuration", 0) or 0), 1)
 
 
 def empty_ga4_row(date_value: str, source: str, medium: str, campaign: str) -> dict[str, Any]:
@@ -217,36 +176,236 @@ def empty_ga4_row(date_value: str, source: str, medium: str, campaign: str) -> d
         "channel": channel_name(source, medium),
         "sessions": 0,
         "users": 0,
+        "new_users": 0,
         "detail_views": 0,
+        "checkout_starts": 0,
         "purchases": 0,
         "revenue": 0.0,
+        "bounce_rate": 0.0,
+        "avg_session_duration": 0.0,
+        "engagement_rate": 0.0,
+        "bounce_sessions": 0.0,
+        "total_duration": 0.0,
     }
 
 
 def add_ga4_rates(row: dict[str, Any]) -> None:
     sessions = row.get("sessions", 0)
     details = row.get("detail_views", 0)
+    checkouts = row.get("checkout_starts", 0)
     purchases = row.get("purchases", 0)
     row["detail_view_rate"] = round(details / sessions * 100, 2) if sessions else 0
+    row["checkout_rate"] = round(checkouts / sessions * 100, 2) if sessions else 0
     row["purchase_rate"] = round(purchases / sessions * 100, 2) if sessions else 0
     row["detail_to_purchase_rate"] = round(purchases / details * 100, 2) if details else 0
+    row["checkout_to_purchase_rate"] = round(purchases / checkouts * 100, 2) if checkouts else 0
 
+
+# ── GA4 main build ────────────────────────────────────────────────────────────
+
+def build_ga4(property_id: str, since: str, until: str) -> dict[str, Any]:
+    print("  GA4: fetching traffic rows …")
+    traffic_rows = run_ga4_report(property_id, since, until, GA4_DIMENSIONS, GA4_TRAFFIC_METRICS)
+
+    print("  GA4: fetching view_item events …")
+    detail_rows = run_ga4_report(
+        property_id, since, until, GA4_DIMENSIONS, GA4_EVENT_METRICS, event_name="view_item"
+    )
+
+    print("  GA4: fetching begin_checkout events …")
+    checkout_rows = run_ga4_report(
+        property_id, since, until, GA4_DIMENSIONS, GA4_EVENT_METRICS, event_name="begin_checkout"
+    )
+
+    print("  GA4: fetching purchase events …")
+    purchase_rows = run_ga4_report(
+        property_id, since, until, GA4_DIMENSIONS, GA4_EVENT_METRICS, event_name="purchase"
+    )
+
+    print("  GA4: fetching device breakdown …")
+    device_traffic = run_ga4_report(property_id, since, until, GA4_DEVICE_DIMENSIONS, GA4_DEVICE_METRICS)
+    device_detail = run_ga4_report(
+        property_id, since, until, GA4_DEVICE_DIMENSIONS, ["eventCount"], event_name="view_item"
+    )
+    device_checkout = run_ga4_report(
+        property_id, since, until, GA4_DEVICE_DIMENSIONS, ["eventCount"], event_name="begin_checkout"
+    )
+    device_purchase = run_ga4_report(
+        property_id, since, until, GA4_DEVICE_DIMENSIONS, ["eventCount", "totalRevenue"],
+        event_name="purchase"
+    )
+
+    print("  GA4: fetching landing page data …")
+    landing_traffic = run_ga4_report(
+        property_id, since, until, GA4_LANDING_DIMENSIONS, GA4_LANDING_METRICS, limit=2000
+    )
+    landing_purchase = run_ga4_report(
+        property_id, since, until, GA4_LANDING_DIMENSIONS, ["eventCount", "totalRevenue"],
+        event_name="purchase", limit=2000,
+    )
+
+    # ── Merge main rows ───────────────────────────────────────────────────────
+    merged: dict[tuple, dict[str, Any]] = {}
+
+    for row in traffic_rows:
+        key = key_from_row(row)
+        date_value, source, medium, campaign = key
+        br = _bounce_pct(row)
+        dur = _avg_duration(row)
+        sessions = int(row.get("sessions", 0) or 0)
+        merged[key] = {
+            "date": date_value,
+            "source": source,
+            "medium": medium,
+            "campaign": campaign,
+            "channel": channel_name(source, medium),
+            "sessions": sessions,
+            "users": int(row.get("totalUsers", 0) or 0),
+            "new_users": int(row.get("newUsers", 0) or 0),
+            "detail_views": 0,
+            "checkout_starts": 0,
+            "purchases": 0,
+            "revenue": float(row.get("totalRevenue", 0) or 0),
+            "bounce_rate": br,
+            "avg_session_duration": dur,
+            "engagement_rate": round(float(row.get("engagementRate", 0) or 0) * 100, 2),
+            "bounce_sessions": round(br * sessions / 100, 2),
+            "total_duration": round(dur * sessions, 2),
+        }
+
+    for row in detail_rows:
+        key = key_from_row(row)
+        if key not in merged:
+            date_value, source, medium, campaign = key
+            merged[key] = empty_ga4_row(date_value, source, medium, campaign)
+        merged[key]["detail_views"] += int(row.get("eventCount", 0) or 0)
+
+    for row in checkout_rows:
+        key = key_from_row(row)
+        if key not in merged:
+            date_value, source, medium, campaign = key
+            merged[key] = empty_ga4_row(date_value, source, medium, campaign)
+        merged[key]["checkout_starts"] += int(row.get("eventCount", 0) or 0)
+
+    for row in purchase_rows:
+        key = key_from_row(row)
+        if key not in merged:
+            date_value, source, medium, campaign = key
+            merged[key] = empty_ga4_row(date_value, source, medium, campaign)
+        merged[key]["purchases"] += int(row.get("eventCount", 0) or 0)
+        purchase_revenue = float(row.get("totalRevenue", 0) or 0)
+        if purchase_revenue:
+            merged[key]["revenue"] = purchase_revenue
+
+    rows = sorted(merged.values(), key=lambda r: (r["date"], -r["sessions"]))
+    for row in rows:
+        add_ga4_rates(row)
+
+    has_checkout = any(r.get("checkout_starts", 0) > 0 for r in rows)
+
+    # ── Device rows ───────────────────────────────────────────────────────────
+    dev_merged: dict[tuple, dict[str, Any]] = {}
+    for row in device_traffic:
+        key = device_key(row)
+        date_value, device = key
+        br = _bounce_pct(row)
+        dur = _avg_duration(row)
+        sessions = int(row.get("sessions", 0) or 0)
+        dev_merged[key] = {
+            "date": date_value,
+            "device_category": device,
+            "sessions": sessions,
+            "users": int(row.get("totalUsers", 0) or 0),
+            "new_users": int(row.get("newUsers", 0) or 0),
+            "detail_views": 0,
+            "checkout_starts": 0,
+            "purchases": 0,
+            "revenue": float(row.get("totalRevenue", 0) or 0),
+            "bounce_rate": br,
+            "avg_session_duration": dur,
+            "bounce_sessions": round(br * sessions / 100, 2),
+            "total_duration": round(dur * sessions, 2),
+        }
+    for row in device_detail:
+        key = device_key(row)
+        if key in dev_merged:
+            dev_merged[key]["detail_views"] += int(row.get("eventCount", 0) or 0)
+    for row in device_checkout:
+        key = device_key(row)
+        if key in dev_merged:
+            dev_merged[key]["checkout_starts"] += int(row.get("eventCount", 0) or 0)
+    for row in device_purchase:
+        key = device_key(row)
+        if key in dev_merged:
+            dev_merged[key]["purchases"] += int(row.get("eventCount", 0) or 0)
+            pr = float(row.get("totalRevenue", 0) or 0)
+            if pr:
+                dev_merged[key]["revenue"] = pr
+
+    device_rows_out = sorted(dev_merged.values(), key=lambda r: (r["date"], -r["sessions"]))
+    for row in device_rows_out:
+        add_ga4_rates(row)
+
+    # ── Landing page rows ─────────────────────────────────────────────────────
+    land_merged: dict[tuple, dict[str, Any]] = {}
+    for row in landing_traffic:
+        key = landing_key(row)
+        date_value, lp = key
+        br = _bounce_pct(row)
+        dur = _avg_duration(row)
+        sessions = int(row.get("sessions", 0) or 0)
+        land_merged[key] = {
+            "date": date_value,
+            "landing_page": lp,
+            "sessions": sessions,
+            "users": int(row.get("totalUsers", 0) or 0),
+            "purchases": 0,
+            "revenue": float(row.get("totalRevenue", 0) or 0),
+            "bounce_rate": br,
+            "avg_session_duration": dur,
+            "bounce_sessions": round(br * sessions / 100, 2),
+            "total_duration": round(dur * sessions, 2),
+        }
+    for row in landing_purchase:
+        key = landing_key(row)
+        if key in land_merged:
+            land_merged[key]["purchases"] += int(row.get("eventCount", 0) or 0)
+            pr = float(row.get("totalRevenue", 0) or 0)
+            if pr:
+                land_merged[key]["revenue"] = pr
+
+    landing_rows_out = sorted(land_merged.values(), key=lambda r: (r["date"], -r["sessions"]))
+    for row in landing_rows_out:
+        sessions = row.get("sessions", 0)
+        purchases = row.get("purchases", 0)
+        row["purchase_rate"] = round(purchases / sessions * 100, 2) if sessions else 0
+
+    return {
+        "property_id": property_id,
+        "has_checkout": has_checkout,
+        "funnel_definition": {
+            "traffic": "sessions",
+            "detail_view": "GA4 eventName=view_item",
+            "checkout": "GA4 eventName=begin_checkout",
+            "purchase": "GA4 eventName=purchase",
+        },
+        "rows": rows,
+        "device_rows": device_rows_out,
+        "landing_rows": landing_rows_out,
+    }
+
+
+# ── Meta build ────────────────────────────────────────────────────────────────
 
 def meta_api_rows(cfg: dict[str, Any], since: str, until: str, level: str) -> list[dict[str, Any]]:
     fields = [
-        "date_start",
-        "date_stop",
-        "campaign_id",
-        "campaign_name",
-        "impressions",
-        "reach",
-        "spend",
-        "clicks",
-        "actions",
-        "action_values",
+        "date_start", "date_stop",
+        "campaign_id", "campaign_name",
+        "impressions", "reach", "spend", "clicks",
+        "actions", "action_values",
     ]
     if level in {"adset", "ad"}:
-        fields.extend(["adset_id", "adset_name"])
+        fields.extend(["adset_id", "adset_name", "frequency"])
     if level == "ad":
         fields.extend(["ad_id", "ad_name"])
 
@@ -265,19 +424,12 @@ def meta_api_rows(cfg: dict[str, Any], since: str, until: str, level: str) -> li
 
 def meta_placement_rows(cfg: dict[str, Any], since: str, until: str) -> list[dict[str, Any]]:
     fields = [
-        "date_start",
-        "date_stop",
-        "campaign_id",
-        "campaign_name",
-        "adset_id",
-        "adset_name",
-        "ad_id",
-        "ad_name",
-        "impressions",
-        "spend",
-        "clicks",
-        "actions",
-        "action_values",
+        "date_start", "date_stop",
+        "campaign_id", "campaign_name",
+        "adset_id", "adset_name",
+        "ad_id", "ad_name",
+        "impressions", "spend", "clicks",
+        "actions", "action_values",
     ]
     url = f"https://graph.facebook.com/{cfg['api_version']}/{cfg['account_id']}/insights"
     params = {
@@ -306,13 +458,14 @@ def parse_meta_metrics(row: dict[str, Any]) -> dict[str, Any]:
         extract_monetary_value(action_values, "offsite_conversion.fb_pixel_purchase")
         + extract_monetary_value(action_values, "offsite_conversion.fb_pixel_lead")
     )
-    item = {
+    item: dict[str, Any] = {
         "impressions": int(row.get("impressions", 0) or 0),
         "reach": int(row.get("reach", 0) or 0),
         "clicks": int(row.get("clicks", 0) or 0),
         "spend": round(float(row.get("spend", 0) or 0), 2),
         "conversions": conversions,
         "conversion_value": round(conversion_value, 2),
+        "frequency": round(float(row.get("frequency", 0) or 0), 2),
     }
     calc_derived(item)
     return item
@@ -321,7 +474,7 @@ def parse_meta_metrics(row: dict[str, Any]) -> dict[str, Any]:
 def normalize_meta_level(rows: list[dict[str, Any]], level: str) -> list[dict[str, Any]]:
     out = []
     for row in rows:
-        item = {
+        item: dict[str, Any] = {
             "date": row.get("date_start", ""),
             "campaign_id": row.get("campaign_id", ""),
             "campaign_name": row.get("campaign_name", ""),
@@ -340,7 +493,7 @@ def normalize_meta_level(rows: list[dict[str, Any]], level: str) -> list[dict[st
 def normalize_placements(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     out = []
     for row in rows:
-        item = {
+        item: dict[str, Any] = {
             "date": row.get("date_start", ""),
             "campaign_id": row.get("campaign_id", ""),
             "campaign_name": row.get("campaign_name", ""),
@@ -359,9 +512,13 @@ def normalize_placements(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 def build_meta(since: str, until: str) -> dict[str, Any]:
     cfg = load_config()
+    print("  Meta: fetching campaign insights …")
     campaigns = normalize_meta_level(meta_api_rows(cfg, since, until, "campaign"), "campaign")
+    print("  Meta: fetching adset insights …")
     adsets = normalize_meta_level(meta_api_rows(cfg, since, until, "adset"), "adset")
+    print("  Meta: fetching ad insights …")
     ads = normalize_meta_level(meta_api_rows(cfg, since, until, "ad"), "ad")
+    print("  Meta: fetching placement breakdown …")
     placements = normalize_placements(meta_placement_rows(cfg, since, until))
     return {
         "account_id": cfg["account_id"],
@@ -372,8 +529,12 @@ def build_meta(since: str, until: str) -> dict[str, Any]:
     }
 
 
+# ── Entry point ───────────────────────────────────────────────────────────────
+
 def main() -> None:
     args = parse_args()
+    print(f"Building dashboard data: {args.since} → {args.until}")
+
     payload: dict[str, Any] = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "period": {"since": args.since, "until": args.until},
@@ -381,14 +542,27 @@ def main() -> None:
     }
 
     if args.skip_ga4:
-        payload["ga4"] = {"rows": []}
+        payload["ga4"] = {"rows": [], "device_rows": [], "landing_rows": [], "has_checkout": False}
     else:
+        print("GA4:")
         payload["ga4"] = build_ga4(args.ga4_property_id, args.since, args.until)
+        print(
+            f"  → {len(payload['ga4']['rows'])} rows, "
+            f"{len(payload['ga4']['device_rows'])} device rows, "
+            f"{len(payload['ga4']['landing_rows'])} landing rows"
+        )
 
     if args.skip_meta:
         payload["meta"] = {"campaigns": [], "adsets": [], "ads": [], "placements": []}
     else:
+        print("Meta:")
         payload["meta"] = build_meta(args.since, args.until)
+        print(
+            f"  → {len(payload['meta']['campaigns'])} campaign rows, "
+            f"{len(payload['meta']['adsets'])} adset rows, "
+            f"{len(payload['meta']['ads'])} ad rows, "
+            f"{len(payload['meta']['placements'])} placement rows"
+        )
 
     output = Path(args.output)
     output.parent.mkdir(parents=True, exist_ok=True)
