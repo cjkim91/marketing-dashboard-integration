@@ -1,0 +1,11 @@
+# This file is intentionally a no-op. The canonical Pages deployment lives in
+# `deploy-pages.yml`. Kept here only because the runtime does not have
+# permission to delete it.
+name: pages-legacy-stub
+on:
+  workflow_dispatch:
+jobs:
+  noop:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Replaced by deploy-pages.yml"

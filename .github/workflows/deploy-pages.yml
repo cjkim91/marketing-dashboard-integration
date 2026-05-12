@@ -5,8 +5,19 @@ on:
     branches:
       - main
   schedule:
-    - cron: "30 0 * * *"
+    # ── Always rolling through "yesterday in KST" ─────────────────────────────
+    # Primary build:  02:30 UTC  = 11:30 KST  (GA4 daily aggregates settled)
+    # Safety rebuild: 09:30 UTC  = 18:30 KST  (recovers from any earlier failure)
+    - cron: "30 2 * * *"
+    - cron: "30 9 * * *"
   workflow_dispatch:
+    inputs:
+      since:
+        description: "Start date (YYYY-MM-DD). Leave blank for 90-day window."
+        required: false
+      until:
+        description: "End date (YYYY-MM-DD). Leave blank to use yesterday (KST)."
+        required: false
 
 permissions:
   contents: read
@@ -42,6 +53,8 @@ jobs:
           FACEBOOK_ACCESS_TOKEN: ${{ secrets.FACEBOOK_ACCESS_TOKEN }}
           AD_ACCOUNT_ID: ${{ secrets.AD_ACCOUNT_ID }}
           META_API_VERSION: ${{ secrets.META_API_VERSION }}
+          INPUT_SINCE: ${{ github.event.inputs.since }}
+          INPUT_UNTIL: ${{ github.event.inputs.until }}
         run: |
           if [ -z "$GOOGLE_APPLICATION_CREDENTIALS_JSON" ] || [ -z "$FACEBOOK_ACCESS_TOKEN" ] || [ -z "$AD_ACCOUNT_ID" ]; then
             echo "Dashboard data secrets are not configured. Deploying UI without dashboard.json."
@@ -50,8 +63,12 @@ jobs:
           python -m pip install -r requirements.txt
           printf '%s' "$GOOGLE_APPLICATION_CREDENTIALS_JSON" > "$RUNNER_TEMP/ga4-service-account.json"
           export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/ga4-service-account.json"
-          SINCE="$(TZ=Asia/Seoul date -d '90 days ago' +%F)"
-          UNTIL="$(TZ=Asia/Seoul date -d 'yesterday' +%F)"
+
+          # The build script defaults to D-1 KST when --since/--until omitted, but
+          # we pass explicit values so workflow_dispatch overrides work cleanly.
+          SINCE="${INPUT_SINCE:-$(TZ=Asia/Seoul date -d '90 days ago' +%F)}"
+          UNTIL="${INPUT_UNTIL:-$(TZ=Asia/Seoul date -d 'yesterday' +%F)}"
+          echo "Building window: $SINCE → $UNTIL (KST)"
           python scripts/build_dashboard_data.py \
             --since "$SINCE" \
             --until "$UNTIL" \

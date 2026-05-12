@@ -1,314 +1,487 @@
 <!doctype html>
-<html lang="ko">
+<html lang="ko" data-theme="light">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Marketing Command Center</title>
+    <title>Pulse · Marketing Performance</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap"
+          rel="stylesheet">
     <link rel="stylesheet" href="./styles.css">
   </head>
   <body>
-    <header class="topbar">
-      <div class="title-block">
-        <p class="eyebrow">Marketing Command Center</p>
-        <h1>GA4 Funnel &amp; Meta Ads Dashboard</h1>
-        <p id="dataStatus" class="freshness">데이터를 불러오는 중</p>
-      </div>
-      <div class="control-bar" aria-label="대시보드 필터">
-        <div class="preset-group" role="group" aria-label="기간 프리셋">
-          <button data-preset="7">최근 7일</button>
-          <button data-preset="14">최근 14일</button>
-          <button data-preset="30">최근 30일</button>
-          <button data-preset="all" class="active">전체</button>
+    <!-- ══ APP SHELL ════════════════════════════════════════════════════════ -->
+    <div class="app">
+
+      <!-- ── Sticky topbar ────────────────────────────────────────────── -->
+      <header class="topbar">
+        <div class="topbar-inner">
+          <div class="brand">
+            <div class="brand-mark" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 12h3l2-7 4 14 2-9 2 5h5"/>
+              </svg>
+            </div>
+            <div class="brand-text">
+              <div class="brand-title">Pulse</div>
+              <div class="brand-sub">Marketing Performance</div>
+            </div>
+          </div>
+
+          <nav class="tabs" aria-label="대시보드 페이지">
+            <button class="tab active" data-page="overview">
+              <span class="tab-dot" data-color="primary"></span>오버뷰
+            </button>
+            <button class="tab" data-page="ga4">
+              <span class="tab-dot" data-color="positive"></span>GA4 퍼널
+            </button>
+            <button class="tab" data-page="meta">
+              <span class="tab-dot" data-color="warning"></span>Meta 광고
+            </button>
+            <button class="tab" data-page="channels">
+              <span class="tab-dot" data-color="violet"></span>채널 분석
+            </button>
+          </nav>
+
+          <div class="topbar-actions">
+            <div class="freshness" id="freshness" aria-live="polite">
+              <span class="freshness-dot"></span>
+              <span class="freshness-text">데이터 확인 중</span>
+            </div>
+            <button id="themeToggle" class="icon-btn" aria-label="테마 전환" title="라이트/다크 전환">
+              <svg class="ico-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+              <svg class="ico-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/></svg>
+            </button>
+          </div>
         </div>
-        <label>
-          시작일
-          <input id="startDate" type="date">
-        </label>
-        <label>
-          종료일
-          <input id="endDate" type="date">
-        </label>
-        <div class="segmented" role="group" aria-label="집계 단위">
-          <button class="active" data-granularity="week">주별</button>
-          <button data-granularity="day">일별</button>
-          <button data-granularity="month">월별</button>
+
+        <!-- Filter bar -->
+        <div class="filterbar">
+          <div class="filter-group" role="group" aria-label="기간 프리셋">
+            <button class="chip" data-preset="7">7일</button>
+            <button class="chip active" data-preset="28">28일</button>
+            <button class="chip" data-preset="90">90일</button>
+            <button class="chip" data-preset="all">전체</button>
+          </div>
+          <div class="filter-divider"></div>
+          <div class="filter-dates">
+            <label class="date-field">
+              <span>시작</span>
+              <input id="startDate" type="date">
+            </label>
+            <span class="date-arrow">→</span>
+            <label class="date-field">
+              <span>종료</span>
+              <input id="endDate" type="date">
+            </label>
+          </div>
+          <div class="filter-divider"></div>
+          <div class="filter-group" role="group" aria-label="집계 단위">
+            <button class="chip active" data-granularity="day">일</button>
+            <button class="chip" data-granularity="week">주</button>
+            <button class="chip" data-granularity="month">월</button>
+          </div>
+          <div class="filter-grow"></div>
+          <div class="filter-compare">
+            <label class="switch">
+              <input type="checkbox" id="compareToggle" checked>
+              <span class="switch-track"></span>
+              <span class="switch-label">전기간 대비</span>
+            </label>
+          </div>
         </div>
-      </div>
-    </header>
+      </header>
 
-    <nav class="primary-tabs" aria-label="대시보드 페이지">
-      <button class="active" data-page="ga4">GA4 Funnel</button>
-      <button data-page="meta">Meta Ads</button>
-    </nav>
+      <!-- ── Main content ─────────────────────────────────────────────── -->
+      <main class="main">
 
-    <main>
-      <section id="emptyState" class="empty-state hidden">
-        <h2>대시보드 데이터가 없습니다</h2>
-        <p><code>public/data/dashboard.json</code>을 생성하거나 배포에 포함하면 실제 데이터가 표시됩니다.</p>
-      </section>
+        <!-- Empty state -->
+        <section id="emptyState" class="empty-state hidden">
+          <div class="empty-card">
+            <h2>데이터를 불러올 수 없습니다</h2>
+            <p><code>public/data/dashboard.json</code>이 누락되었습니다. GitHub Actions가 한 번이라도 성공해야 데이터가 채워집니다.</p>
+            <pre><code>python scripts/build_dashboard_data.py --output public/data/dashboard.json</code></pre>
+          </div>
+        </section>
 
-      <!-- ══ GA4 Page ══════════════════════════════════════════════════════ -->
-      <section id="ga4Page" class="page">
+        <!-- ══ OVERVIEW ════════════════════════════════════════════ -->
+        <section id="overviewPage" class="page">
+          <div class="page-head">
+            <h1>마케팅 오버뷰</h1>
+            <p id="overviewPeriodLabel" class="page-sub"></p>
+          </div>
 
-        <!-- KPI Band -->
-        <section id="ga4Summary" class="kpi-grid"></section>
+          <section id="overviewKpis" class="kpi-row"></section>
 
-        <!-- Analysis Row: Funnel + Channel Table -->
-        <div class="analysis-grid">
-          <article class="panel">
-            <div class="panel-head">
+          <section class="grid-2">
+            <article class="card card-lg">
+              <header class="card-head">
+                <div>
+                  <h2>매출 · 광고비 · ROAS</h2>
+                  <p class="card-sub">기간 흐름과 핵심 효율 지표</p>
+                </div>
+                <div class="segmented compact" role="group" aria-label="오버뷰 트렌드 메트릭">
+                  <button class="active" data-overview-trend="revenue_spend">매출/광고비</button>
+                  <button data-overview-trend="roas_cpa">ROAS/CPA</button>
+                  <button data-overview-trend="sessions_purchases">유입/구매</button>
+                </div>
+              </header>
+              <div class="chart-tall"><canvas id="chartOverviewTrend"></canvas></div>
+            </article>
+
+            <article class="card">
+              <header class="card-head">
+                <div>
+                  <h2>퍼널 스냅샷</h2>
+                  <p class="card-sub">GA4 단계별 전환</p>
+                </div>
+              </header>
+              <div id="overviewFunnel" class="funnel"></div>
+            </article>
+          </section>
+
+          <section class="grid-2">
+            <article class="card">
+              <header class="card-head">
+                <div>
+                  <h2>채널 믹스</h2>
+                  <p class="card-sub">유입 · 매출 기여도</p>
+                </div>
+              </header>
+              <div class="channel-mix-grid">
+                <div class="donut-wrap"><canvas id="chartChannelMix"></canvas></div>
+                <div class="legend" id="channelLegend"></div>
+              </div>
+            </article>
+
+            <article class="card">
+              <header class="card-head">
+                <div>
+                  <h2>상위 캠페인</h2>
+                  <p class="card-sub">광고비 기준 · ROAS 색상 표기</p>
+                </div>
+                <a class="link-btn" data-jump="meta">전체 보기 →</a>
+              </header>
+              <div class="table-scroll">
+                <table class="data-table compact">
+                  <thead>
+                    <tr>
+                      <th>캠페인</th>
+                      <th class="num">광고비</th>
+                      <th class="num">전환</th>
+                      <th class="num">매출</th>
+                      <th class="num">ROAS</th>
+                    </tr>
+                  </thead>
+                  <tbody id="overviewTopCampaigns"></tbody>
+                </table>
+              </div>
+            </article>
+          </section>
+
+          <section class="card">
+            <header class="card-head">
               <div>
-                <p class="section-label">Funnel</p>
-                <h2>전체 퍼널</h2>
-                <p>유입 → 상세조회 → 결제시작 → 구매</p>
+                <h2>일자별 성과 히트맵</h2>
+                <p class="card-sub">광고비 대비 매출 효율 — 진할수록 ROAS 높음</p>
+              </div>
+            </header>
+            <div id="overviewHeatmap" class="heatmap"></div>
+          </section>
+        </section>
+
+        <!-- ══ GA4 FUNNEL ══════════════════════════════════════════ -->
+        <section id="ga4Page" class="page hidden">
+          <div class="page-head">
+            <h1>GA4 퍼널 분석</h1>
+            <p class="page-sub">사이트 유입에서 구매까지의 전환 흐름</p>
+          </div>
+
+          <section id="ga4Kpis" class="kpi-row"></section>
+
+          <section class="grid-2">
+            <article class="card">
+              <header class="card-head">
+                <div>
+                  <h2>전환 퍼널</h2>
+                  <p class="card-sub">단계 간 전환율 · 전기간 대비</p>
+                </div>
+              </header>
+              <div id="ga4Funnel" class="funnel funnel-detailed"></div>
+            </article>
+
+            <article class="card">
+              <header class="card-head">
+                <div>
+                  <h2>채널별 성과</h2>
+                  <p class="card-sub">매출 기여 순</p>
+                </div>
+              </header>
+              <div class="table-scroll">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>채널</th>
+                      <th class="num">유입</th>
+                      <th class="num">비중</th>
+                      <th class="num">구매</th>
+                      <th class="num">구매율</th>
+                      <th class="num">매출</th>
+                    </tr>
+                  </thead>
+                  <tbody id="ga4ChannelTable"></tbody>
+                </table>
+              </div>
+            </article>
+          </section>
+
+          <section class="card">
+            <header class="card-head">
+              <div>
+                <h2>퍼널 지표 추이</h2>
+                <p class="card-sub">유입 · 구매 · 매출 · 이탈률</p>
+              </div>
+            </header>
+            <div class="trend-grid-4">
+              <div class="trend-cell">
+                <div class="trend-head"><span>유입</span><span id="ga4TSessions" class="trend-latest">-</span></div>
+                <div class="trend-canvas"><canvas id="chartGa4Sessions"></canvas></div>
+              </div>
+              <div class="trend-cell">
+                <div class="trend-head"><span>구매</span><span id="ga4TPurchases" class="trend-latest">-</span></div>
+                <div class="trend-canvas"><canvas id="chartGa4Purchases"></canvas></div>
+              </div>
+              <div class="trend-cell">
+                <div class="trend-head"><span>매출</span><span id="ga4TRevenue" class="trend-latest">-</span></div>
+                <div class="trend-canvas"><canvas id="chartGa4Revenue"></canvas></div>
+              </div>
+              <div class="trend-cell">
+                <div class="trend-head"><span>이탈률</span><span id="ga4TBounce" class="trend-latest">-</span></div>
+                <div class="trend-canvas"><canvas id="chartGa4Bounce"></canvas></div>
               </div>
             </div>
-            <div id="ga4Funnel" class="funnel"></div>
-          </article>
+          </section>
 
-          <article class="panel">
-            <div class="panel-head">
+          <section class="grid-2">
+            <article class="card">
+              <header class="card-head">
+                <div>
+                  <h2>기기별 성과</h2>
+                  <p class="card-sub">데스크탑 · 모바일 · 태블릿</p>
+                </div>
+              </header>
+              <div class="device-layout">
+                <div class="donut-wrap small"><canvas id="chartGa4Device"></canvas></div>
+                <div class="table-scroll grow">
+                  <table class="data-table compact">
+                    <thead>
+                      <tr>
+                        <th>기기</th>
+                        <th class="num">유입</th>
+                        <th class="num">구매율</th>
+                        <th class="num">매출</th>
+                        <th class="num">이탈률</th>
+                      </tr>
+                    </thead>
+                    <tbody id="ga4DeviceTable"></tbody>
+                  </table>
+                </div>
+              </div>
+            </article>
+
+            <article class="card">
+              <header class="card-head">
+                <div>
+                  <h2>랜딩페이지 성과</h2>
+                  <p class="card-sub">상위 20개 · 클릭으로 정렬</p>
+                </div>
+              </header>
+              <div class="table-scroll capped">
+                <table class="data-table compact">
+                  <thead>
+                    <tr>
+                      <th>랜딩페이지</th>
+                      <th class="num sortable" data-sort-key="sessions" data-sort-scope="landing">유입</th>
+                      <th class="num sortable" data-sort-key="bounce_rate" data-sort-scope="landing">이탈률</th>
+                      <th class="num sortable" data-sort-key="purchase_rate" data-sort-scope="landing">구매율</th>
+                      <th class="num sortable" data-sort-key="revenue" data-sort-scope="landing">매출</th>
+                    </tr>
+                  </thead>
+                  <tbody id="ga4LandingTable"></tbody>
+                </table>
+              </div>
+            </article>
+          </section>
+
+          <section class="card">
+            <header class="card-head">
               <div>
-                <p class="section-label">Channel</p>
-                <h2>유입 경로별 성과</h2>
-                <p>채널별 유입·구매·매출 비교 (전 기간 대비)</p>
+                <h2>유입 경로 상세</h2>
+                <p class="card-sub">Source · Medium · Campaign 단위 — 클릭으로 정렬</p>
+              </div>
+              <input id="ga4Search" type="search" placeholder="검색 (소스 · 미디엄 · 캠페인)" class="search-input">
+            </header>
+            <div class="table-scroll capped">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>기간</th>
+                    <th>채널</th>
+                    <th>Source / Medium</th>
+                    <th>Campaign</th>
+                    <th class="num sortable" data-sort-key="sessions" data-sort-scope="ga4Detail">유입</th>
+                    <th class="num sortable" data-sort-key="detail_views" data-sort-scope="ga4Detail">상세조회</th>
+                    <th class="num sortable" data-sort-key="purchases" data-sort-scope="ga4Detail">구매</th>
+                    <th class="num">구매율</th>
+                    <th class="num sortable" data-sort-key="revenue" data-sort-scope="ga4Detail">매출</th>
+                  </tr>
+                </thead>
+                <tbody id="ga4Table"></tbody>
+              </table>
+            </div>
+          </section>
+        </section>
+
+        <!-- ══ META ADS ════════════════════════════════════════════ -->
+        <section id="metaPage" class="page hidden">
+          <div class="page-head">
+            <h1>Meta 광고 성과</h1>
+            <p class="page-sub">캠페인 · 광고세트 · 광고 · 지면별 비용 효율</p>
+          </div>
+
+          <section id="metaKpis" class="kpi-row"></section>
+
+          <section class="card">
+            <header class="card-head">
+              <div>
+                <h2>핵심 지표 추이</h2>
+                <p class="card-sub">비용 · 전환 · CPA · ROAS</p>
+              </div>
+            </header>
+            <div class="trend-grid-4">
+              <div class="trend-cell">
+                <div class="trend-head"><span>광고비</span><span id="metaTSpend" class="trend-latest">-</span></div>
+                <div class="trend-canvas"><canvas id="chartMetaSpend"></canvas></div>
+              </div>
+              <div class="trend-cell">
+                <div class="trend-head"><span>전환</span><span id="metaTConversions" class="trend-latest">-</span></div>
+                <div class="trend-canvas"><canvas id="chartMetaConversions"></canvas></div>
+              </div>
+              <div class="trend-cell">
+                <div class="trend-head"><span>CPA</span><span id="metaTCpa" class="trend-latest">-</span></div>
+                <div class="trend-canvas"><canvas id="chartMetaCpa"></canvas></div>
+              </div>
+              <div class="trend-cell">
+                <div class="trend-head"><span>ROAS</span><span id="metaTRoas" class="trend-latest">-</span></div>
+                <div class="trend-canvas"><canvas id="chartMetaRoas"></canvas></div>
               </div>
             </div>
-            <div class="table-wrap">
-              <table>
+          </section>
+
+          <section class="grid-2">
+            <article class="card">
+              <header class="card-head">
+                <div>
+                  <h2>주요 변동</h2>
+                  <p class="card-sub">전기간 대비 비용 증감이 큰 캠페인</p>
+                </div>
+              </header>
+              <div id="metaMovers" class="movers"></div>
+            </article>
+
+            <article class="card">
+              <header class="card-head">
+                <div>
+                  <h2>지면 효율</h2>
+                  <p class="card-sub">Publisher × Position · ROAS 기준</p>
+                </div>
+              </header>
+              <div id="metaPlacementHeat" class="placement-heat"></div>
+            </article>
+          </section>
+
+          <section class="card">
+            <header class="card-head with-controls">
+              <div>
+                <h2 id="metaReviewTitle">캠페인 성과 리뷰</h2>
+                <p class="card-sub">계정 평균 대비 색상 · 전기간 대비 화살표</p>
+              </div>
+              <div class="card-head-controls">
+                <input id="metaSearch" type="search" placeholder="이름 검색" class="search-input">
+                <div class="segmented compact" role="group" aria-label="Meta 레벨">
+                  <button class="active" data-meta-level="campaigns">캠페인</button>
+                  <button data-meta-level="adsets">광고세트</button>
+                  <button data-meta-level="ads">광고</button>
+                  <button data-meta-level="placements">지면</button>
+                </div>
+              </div>
+            </header>
+            <div class="table-scroll capped tall">
+              <table class="data-table">
+                <thead id="metaReviewHead"></thead>
+                <tbody id="metaReviewTable"></tbody>
+              </table>
+            </div>
+          </section>
+        </section>
+
+        <!-- ══ CHANNELS ═══════════════════════════════════════════ -->
+        <section id="channelsPage" class="page hidden">
+          <div class="page-head">
+            <h1>채널 분석</h1>
+            <p class="page-sub">GA4 유입과 Meta 광고비를 채널 단위로 비교</p>
+          </div>
+
+          <section id="channelsKpis" class="kpi-row"></section>
+
+          <section class="card">
+            <header class="card-head">
+              <div>
+                <h2>채널별 매출 · 유입</h2>
+                <p class="card-sub">막대: 매출 · 점: 세션 비중</p>
+              </div>
+            </header>
+            <div class="chart-tall"><canvas id="chartChannelsBars"></canvas></div>
+          </section>
+
+          <section class="card">
+            <header class="card-head">
+              <div>
+                <h2>채널 효율 테이블</h2>
+                <p class="card-sub">CRM · Affiliate 등 채널별 효율</p>
+              </div>
+            </header>
+            <div class="table-scroll">
+              <table class="data-table">
                 <thead>
                   <tr>
                     <th>채널</th>
                     <th class="num">유입</th>
-                    <th class="num">비중</th>
+                    <th class="num">유입 비중</th>
                     <th class="num">구매</th>
                     <th class="num">구매율</th>
                     <th class="num">매출</th>
-                    <th class="num">이탈률</th>
-                    <th class="num">세션 시간</th>
+                    <th class="num">매출 비중</th>
+                    <th class="num">평균 객단가</th>
                   </tr>
                 </thead>
-                <tbody id="ga4ChannelTable"></tbody>
+                <tbody id="channelsTable"></tbody>
               </table>
             </div>
-          </article>
-        </div>
+          </section>
 
-        <!-- Trend Band -->
-        <section class="panel">
-          <div class="panel-head">
-            <div>
-              <p class="section-label">Trend</p>
-              <h2>퍼널 지표 변화</h2>
-              <p>유입, 구매, 매출, 이탈률의 기간별 흐름</p>
-            </div>
-          </div>
-          <div class="chart-grid">
-            <article class="chart-card">
-              <div class="chart-card-header">
-                <span>유입 추이</span><span id="ga4TSessions" class="chart-latest">-</span>
-              </div>
-              <div class="chart-canvas-wrap"><canvas id="chartGa4Sessions"></canvas></div>
-            </article>
-            <article class="chart-card">
-              <div class="chart-card-header">
-                <span>구매 추이</span><span id="ga4TPurchases" class="chart-latest">-</span>
-              </div>
-              <div class="chart-canvas-wrap"><canvas id="chartGa4Purchases"></canvas></div>
-            </article>
-            <article class="chart-card">
-              <div class="chart-card-header">
-                <span>매출 추이</span><span id="ga4TRevenue" class="chart-latest">-</span>
-              </div>
-              <div class="chart-canvas-wrap"><canvas id="chartGa4Revenue"></canvas></div>
-            </article>
-            <article class="chart-card">
-              <div class="chart-card-header">
-                <span>이탈률 추이</span><span id="ga4TBounce" class="chart-latest">-</span>
-              </div>
-              <div class="chart-canvas-wrap"><canvas id="chartGa4Bounce"></canvas></div>
-            </article>
-          </div>
+          <section class="card note">
+            <p>
+              <strong>주의 — 어트리뷰션 모델 차이:</strong>
+              GA4는 사이트 측정 기반(라스트클릭 또는 데이터 기반), Meta는 자체 7-day click 모델로 보고합니다.
+              따라서 “Paid Social” 매출과 Meta 보고 매출은 정확히 일치하지 않을 수 있습니다.
+              교차 채널 효율은 추세 비교 용도로 사용하세요.
+            </p>
+          </section>
         </section>
-
-        <!-- Device + Landing Row -->
-        <div class="analysis-grid analysis-grid--wide">
-
-          <article class="panel">
-            <div class="panel-head">
-              <div>
-                <p class="section-label">Device</p>
-                <h2>기기별 성과</h2>
-                <p>데스크탑 · 모바일 · 태블릿</p>
-              </div>
-            </div>
-            <div class="device-grid">
-              <div class="device-donut-wrap"><canvas id="chartGa4Device"></canvas></div>
-              <div class="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>기기</th>
-                      <th class="num">유입</th>
-                      <th class="num">구매</th>
-                      <th class="num">구매율</th>
-                      <th class="num">매출</th>
-                      <th class="num">이탈률</th>
-                      <th class="num">세션 시간</th>
-                    </tr>
-                  </thead>
-                  <tbody id="ga4DeviceTable"></tbody>
-                </table>
-              </div>
-            </div>
-          </article>
-
-          <article class="panel">
-            <div class="panel-head">
-              <div>
-                <p class="section-label">Landing</p>
-                <h2>랜딩페이지 성과</h2>
-                <p>유입별 이탈률 · 세션 시간 · 전환 (클릭으로 정렬)</p>
-              </div>
-            </div>
-            <div class="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>랜딩페이지</th>
-                    <th class="num sortable" data-sort-key="sessions">유입 <span class="sort-icon"></span></th>
-                    <th class="num sortable" data-sort-key="bounce_rate">이탈률 <span class="sort-icon"></span></th>
-                    <th class="num sortable" data-sort-key="avg_session_duration">세션 시간 <span class="sort-icon"></span></th>
-                    <th class="num sortable" data-sort-key="purchases">구매 <span class="sort-icon"></span></th>
-                    <th class="num sortable" data-sort-key="purchase_rate">구매율 <span class="sort-icon"></span></th>
-                    <th class="num sortable" data-sort-key="revenue">매출 <span class="sort-icon"></span></th>
-                  </tr>
-                </thead>
-                <tbody id="ga4LandingTable"></tbody>
-              </table>
-            </div>
-          </article>
-        </div>
-
-        <!-- Detail Table -->
-        <section class="panel">
-          <div class="panel-head">
-            <div>
-              <p class="section-label">Detail</p>
-              <h2>유입 경로별 퍼널 테이블</h2>
-              <p>Source · Medium · Campaign 단위 상세 데이터 (클릭으로 정렬)</p>
-            </div>
-          </div>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>기간</th>
-                  <th>채널</th>
-                  <th>Source / Medium</th>
-                  <th>Campaign</th>
-                  <th class="num sortable" data-sort-key="sessions">유입 <span class="sort-icon"></span></th>
-                  <th class="num sortable" data-sort-key="detail_views">상세조회 <span class="sort-icon"></span></th>
-                  <th class="num sortable" data-sort-key="checkout_starts">결제시작 <span class="sort-icon"></span></th>
-                  <th class="num sortable" data-sort-key="purchases">구매 <span class="sort-icon"></span></th>
-                  <th class="num">상세조회율</th>
-                  <th class="num">결제전환율</th>
-                  <th class="num">구매율</th>
-                  <th class="num sortable" data-sort-key="revenue">매출 <span class="sort-icon"></span></th>
-                  <th class="num">이탈률</th>
-                  <th class="num">세션 시간</th>
-                </tr>
-              </thead>
-              <tbody id="ga4Table"></tbody>
-            </table>
-          </div>
-        </section>
-      </section>
-
-      <!-- ══ Meta Page ═════════════════════════════════════════════════════ -->
-      <section id="metaPage" class="page hidden">
-
-        <!-- KPI Band -->
-        <section id="metaSummary" class="kpi-grid"></section>
-
-        <!-- Campaign Review Table (hero) -->
-        <section class="panel">
-          <div class="panel-head with-tabs">
-            <div>
-              <p class="section-label">Review</p>
-              <h2 id="metaReviewTitle">캠페인 성과 리뷰</h2>
-              <p>전환수 · 전환율 · 매출 · ROAS · CPA — 계정 평균 대비 색상 표시</p>
-            </div>
-            <div class="segmented compact" role="group" aria-label="Meta 레벨">
-              <button class="active" data-meta-level="campaigns">캠페인</button>
-              <button data-meta-level="adsets">광고세트</button>
-              <button data-meta-level="ads">광고</button>
-              <button data-meta-level="placements">Placement</button>
-            </div>
-          </div>
-          <div class="table-wrap">
-            <table>
-              <thead id="metaReviewHead"></thead>
-              <tbody id="metaReviewTable"></tbody>
-            </table>
-          </div>
-        </section>
-
-        <!-- Trend Band -->
-        <section class="panel">
-          <div class="panel-head">
-            <div>
-              <p class="section-label">Trend</p>
-              <h2>Meta 핵심 지표 변화</h2>
-              <p>비용 · 전환 · CPA · ROAS의 기간별 흐름</p>
-            </div>
-          </div>
-          <div class="chart-grid">
-            <article class="chart-card">
-              <div class="chart-card-header">
-                <span>비용 추이</span><span id="metaTSpend" class="chart-latest">-</span>
-              </div>
-              <div class="chart-canvas-wrap"><canvas id="chartMetaSpend"></canvas></div>
-            </article>
-            <article class="chart-card">
-              <div class="chart-card-header">
-                <span>전환 추이</span><span id="metaTConversions" class="chart-latest">-</span>
-              </div>
-              <div class="chart-canvas-wrap"><canvas id="chartMetaConversions"></canvas></div>
-            </article>
-            <article class="chart-card">
-              <div class="chart-card-header">
-                <span>CPA 추이</span><span id="metaTCpa" class="chart-latest">-</span>
-              </div>
-              <div class="chart-canvas-wrap"><canvas id="chartMetaCpa"></canvas></div>
-            </article>
-            <article class="chart-card">
-              <div class="chart-card-header">
-                <span>ROAS 추이</span><span id="metaTRoas" class="chart-latest">-</span>
-              </div>
-              <div class="chart-canvas-wrap"><canvas id="chartMetaRoas"></canvas></div>
-            </article>
-          </div>
-        </section>
-
-        <!-- Detail Table -->
-        <section class="panel">
-          <div class="panel-head">
-            <div>
-              <p class="section-label">Detail</p>
-              <h2 id="metaTableTitle">캠페인별 성과 테이블</h2>
-              <p>기간별 전체 데이터 (Placement 탭에서는 지면별 상세)</p>
-            </div>
-          </div>
-          <div class="table-wrap">
-            <table>
-              <thead id="metaTableHead"></thead>
-              <tbody id="metaTable"></tbody>
-            </table>
-          </div>
-        </section>
-      </section>
-    </main>
+      </main>
+    </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"
             crossorigin="anonymous"></script>

@@ -11,9 +11,10 @@ from __future__ import annotations
 import argparse
 import json
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from fetch_ga4_data import _build_oauth_credentials, _load_client, _parse_metric_value
 from fetch_meta_data import (
@@ -46,17 +47,53 @@ GA4_LANDING_METRICS = [
 ]
 
 
+# ── Date helpers (always rolls through yesterday KST) ─────────────────────────
+
+KST = ZoneInfo("Asia/Seoul")
+
+
+def kst_yesterday() -> str:
+    return (datetime.now(KST).date() - timedelta(days=1)).isoformat()
+
+
+def kst_days_ago(days: int) -> str:
+    return (datetime.now(KST).date() - timedelta(days=days)).isoformat()
+
+
 # ── CLI ───────────────────────────────────────────────────────────────────────
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Build marketing dashboard JSON.")
-    parser.add_argument("--since", required=True, help="Start date, YYYY-MM-DD.")
-    parser.add_argument("--until", required=True, help="End date, YYYY-MM-DD.")
+    parser.add_argument(
+        "--since",
+        default=None,
+        help="Start date YYYY-MM-DD. Defaults to 90 days before yesterday (KST).",
+    )
+    parser.add_argument(
+        "--until",
+        default=None,
+        help="End date YYYY-MM-DD. Defaults to yesterday (KST) so the dashboard "
+             "always reflects through the previous full day.",
+    )
+    parser.add_argument(
+        "--lookback-days",
+        type=int,
+        default=90,
+        help="When --since is omitted, fetch this many days ending at --until.",
+    )
     parser.add_argument("--output", default="public/data/dashboard.json")
     parser.add_argument("--ga4-property-id", default=os.environ.get("GA4_PROPERTY_ID", "311666548"))
     parser.add_argument("--skip-ga4", action="store_true")
     parser.add_argument("--skip-meta", action="store_true")
-    return parser.parse_args()
+    args = parser.parse_args()
+
+    if not args.until:
+        args.until = kst_yesterday()
+    if not args.since:
+        args.since = (
+            datetime.fromisoformat(args.until).date() - timedelta(days=args.lookback_days - 1)
+        ).isoformat()
+    return args
 
 
 # ── GA4 helpers ───────────────────────────────────────────────────────────────
@@ -178,6 +215,7 @@ def empty_ga4_row(date_value: str, source: str, medium: str, campaign: str) -> d
         "users": 0,
         "new_users": 0,
         "detail_views": 0,
+        "cart_adds": 0,
         "checkout_starts": 0,
         "purchases": 0,
         "revenue": 0.0,
@@ -192,13 +230,16 @@ def empty_ga4_row(date_value: str, source: str, medium: str, campaign: str) -> d
 def add_ga4_rates(row: dict[str, Any]) -> None:
     sessions = row.get("sessions", 0)
     details = row.get("detail_views", 0)
+    cart_adds = row.get("cart_adds", 0)
     checkouts = row.get("checkout_starts", 0)
     purchases = row.get("purchases", 0)
     row["detail_view_rate"] = round(details / sessions * 100, 2) if sessions else 0
+    row["cart_rate"] = round(cart_adds / sessions * 100, 2) if sessions else 0
     row["checkout_rate"] = round(checkouts / sessions * 100, 2) if sessions else 0
     row["purchase_rate"] = round(purchases / sessions * 100, 2) if sessions else 0
     row["detail_to_purchase_rate"] = round(purchases / details * 100, 2) if details else 0
     row["checkout_to_purchase_rate"] = round(purchases / checkouts * 100, 2) if checkouts else 0
+    row["aov"] = round(row.get("revenue", 0) / purchases, 2) if purchases else 0
 
 
 # ── GA4 main build ────────────────────────────────────────────────────────────
@@ -210,6 +251,11 @@ def build_ga4(property_id: str, since: str, until: str) -> dict[str, Any]:
     print("  GA4: fetching view_item events …")
     detail_rows = run_ga4_report(
         property_id, since, until, GA4_DIMENSIONS, GA4_EVENT_METRICS, event_name="view_item"
+    )
+
+    print("  GA4: fetching add_to_cart events …")
+    cart_rows = run_ga4_report(
+        property_id, since, until, GA4_DIMENSIONS, GA4_EVENT_METRICS, event_name="add_to_cart"
     )
 
     print("  GA4: fetching begin_checkout events …")
@@ -226,6 +272,9 @@ def build_ga4(property_id: str, since: str, until: str) -> dict[str, Any]:
     device_traffic = run_ga4_report(property_id, since, until, GA4_DEVICE_DIMENSIONS, GA4_DEVICE_METRICS)
     device_detail = run_ga4_report(
         property_id, since, until, GA4_DEVICE_DIMENSIONS, ["eventCount"], event_name="view_item"
+    )
+    device_cart = run_ga4_report(
+        property_id, since, until, GA4_DEVICE_DIMENSIONS, ["eventCount"], event_name="add_to_cart"
     )
     device_checkout = run_ga4_report(
         property_id, since, until, GA4_DEVICE_DIMENSIONS, ["eventCount"], event_name="begin_checkout"
@@ -280,6 +329,13 @@ def build_ga4(property_id: str, since: str, until: str) -> dict[str, Any]:
             merged[key] = empty_ga4_row(date_value, source, medium, campaign)
         merged[key]["detail_views"] += int(row.get("eventCount", 0) or 0)
 
+    for row in cart_rows:
+        key = key_from_row(row)
+        if key not in merged:
+            date_value, source, medium, campaign = key
+            merged[key] = empty_ga4_row(date_value, source, medium, campaign)
+        merged[key]["cart_adds"] += int(row.get("eventCount", 0) or 0)
+
     for row in checkout_rows:
         key = key_from_row(row)
         if key not in merged:
@@ -302,6 +358,7 @@ def build_ga4(property_id: str, since: str, until: str) -> dict[str, Any]:
         add_ga4_rates(row)
 
     has_checkout = any(r.get("checkout_starts", 0) > 0 for r in rows)
+    has_cart = any(r.get("cart_adds", 0) > 0 for r in rows)
 
     # ── Device rows ───────────────────────────────────────────────────────────
     dev_merged: dict[tuple, dict[str, Any]] = {}
@@ -318,6 +375,7 @@ def build_ga4(property_id: str, since: str, until: str) -> dict[str, Any]:
             "users": int(row.get("totalUsers", 0) or 0),
             "new_users": int(row.get("newUsers", 0) or 0),
             "detail_views": 0,
+            "cart_adds": 0,
             "checkout_starts": 0,
             "purchases": 0,
             "revenue": float(row.get("totalRevenue", 0) or 0),
@@ -330,6 +388,10 @@ def build_ga4(property_id: str, since: str, until: str) -> dict[str, Any]:
         key = device_key(row)
         if key in dev_merged:
             dev_merged[key]["detail_views"] += int(row.get("eventCount", 0) or 0)
+    for row in device_cart:
+        key = device_key(row)
+        if key in dev_merged:
+            dev_merged[key]["cart_adds"] += int(row.get("eventCount", 0) or 0)
     for row in device_checkout:
         key = device_key(row)
         if key in dev_merged:
@@ -383,9 +445,11 @@ def build_ga4(property_id: str, since: str, until: str) -> dict[str, Any]:
     return {
         "property_id": property_id,
         "has_checkout": has_checkout,
+        "has_cart": has_cart,
         "funnel_definition": {
             "traffic": "sessions",
             "detail_view": "GA4 eventName=view_item",
+            "cart": "GA4 eventName=add_to_cart",
             "checkout": "GA4 eventName=begin_checkout",
             "purchase": "GA4 eventName=purchase",
         },
@@ -535,14 +599,24 @@ def main() -> None:
     args = parse_args()
     print(f"Building dashboard data: {args.since} → {args.until}")
 
+    now_utc = datetime.now(timezone.utc)
+    now_kst = now_utc.astimezone(KST)
     payload: dict[str, Any] = {
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": now_utc.isoformat(),
+        "generated_at_kst": now_kst.isoformat(),
+        # Last fully-included calendar day in this snapshot. Front-end uses this
+        # to surface "data through" freshness independent of generation time.
+        "data_through": args.until,
+        "expected_through": kst_yesterday(),
         "period": {"since": args.since, "until": args.until},
-        "defaults": {"granularity": "week"},
+        "defaults": {"granularity": "day"},
     }
 
     if args.skip_ga4:
-        payload["ga4"] = {"rows": [], "device_rows": [], "landing_rows": [], "has_checkout": False}
+        payload["ga4"] = {
+            "rows": [], "device_rows": [], "landing_rows": [],
+            "has_checkout": False, "has_cart": False,
+        }
     else:
         print("GA4:")
         payload["ga4"] = build_ga4(args.ga4_property_id, args.since, args.until)
