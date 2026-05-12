@@ -17,7 +17,7 @@ const state = {
   metaLevel: "campaigns",
   startDate: "",
   endDate: "",
-  charts: {},        // Chart.js instances keyed by canvas id
+  charts: {},
   sortLanding: { key: "sessions", dir: "desc" },
   sortGa4Detail: { key: "purchases", dir: "desc" },
 };
@@ -149,17 +149,26 @@ function setDateInputs() {
   document.getElementById("endDate").value   = state.endDate;
 }
 
+// ── Comparison period ─────────────────────────────────────────────────────────
+// Returns the equal-length period immediately preceding the current selection.
+function getComparisonPeriod() {
+  if (!state.startDate || !state.endDate) return null;
+  const start = parseLocalDate(state.startDate);
+  const end   = parseLocalDate(state.endDate);
+  const days  = Math.round((end - start) / 86400000) + 1;
+  const prevEnd   = new Date(start);
+  prevEnd.setDate(prevEnd.getDate() - 1);
+  const prevStart = new Date(prevEnd);
+  prevStart.setDate(prevStart.getDate() - days + 1);
+  return { start: fmtDate(prevStart), end: fmtDate(prevEnd) };
+}
+
 // ── Sort headers ──────────────────────────────────────────────────────────────
 function bindSortHeaders() {
-  // Landing table sort
-  document.querySelectorAll("#ga4LandingTable").forEach(() => {});
   document.querySelectorAll("th.sortable[data-sort-key]").forEach((th) => {
     th.addEventListener("click", () => {
-      const key = th.dataset.sortKey;
-      const table = th.closest("table");
-
-      // Determine which sort state to use based on the tbody sibling
-      const tbody = table.querySelector("tbody");
+      const key  = th.dataset.sortKey;
+      const tbody = th.closest("table").querySelector("tbody");
       let sortState;
       if (tbody && tbody.id === "ga4LandingTable") sortState = state.sortLanding;
       else sortState = state.sortGa4Detail;
@@ -170,7 +179,7 @@ function bindSortHeaders() {
         sortState.key = key;
         sortState.dir = "desc";
       }
-      updateSortIcons(table, key, sortState.dir);
+      updateSortIcons(th.closest("table"), key, sortState.dir);
       render();
     });
   });
@@ -186,10 +195,8 @@ function updateSortIcons(table, activeKey, dir) {
 }
 
 function applySortState() {
-  // Apply current sort states to table headers on render
   const landingTable = document.getElementById("ga4LandingTable")?.closest("table");
   if (landingTable) updateSortIcons(landingTable, state.sortLanding.key, state.sortLanding.dir);
-
   const ga4Table = document.getElementById("ga4Table")?.closest("table");
   if (ga4Table) updateSortIcons(ga4Table, state.sortGa4Detail.key, state.sortGa4Detail.dir);
 }
@@ -213,9 +220,11 @@ function render() {
 // ═════════════════════════════════════════════════════════════════════════════
 
 function renderGa4() {
-  const rows = filterByDate(state.data.ga4?.rows || []);
+  const allGa4 = state.data.ga4?.rows || [];
+  const rows = filterByDate(allGa4);
   const hasCheckout = !!(state.data.ga4?.has_checkout);
 
+  // Current period aggregated by granularity period
   const byPeriod = aggregateRows(rows, ["period"], {
     sessions: "sum", users: "sum", new_users: "sum",
     detail_views: "sum", checkout_starts: "sum", purchases: "sum", revenue: "sum",
@@ -228,10 +237,15 @@ function renderGa4() {
      "bounce_sessions", "total_duration"]);
   recomputeGa4Derived(totals);
 
+  // Comparison period rows (for channel table)
+  const comp = getComparisonPeriod();
+  const prevRows = comp ? filterByDateRange(allGa4, comp.start, comp.end) : [];
+
+  // ── KPI cards ───────────────────────────────────────────────────────────
+  // Use last vs second-to-last granularity period for KPI deltas
   const cur  = byPeriod[byPeriod.length - 1] || {};
   const prev = byPeriod[byPeriod.length - 2] || null;
 
-  // ── KPI cards ───────────────────────────────────────────────────────────
   const kpis = [
     kpi("유입", totals.sessions, "Sessions", cur.sessions, prev?.sessions, byPeriod, "sessions", fmtInt),
     kpi("상세조회", totals.detail_views, "view_item", cur.detail_views, prev?.detail_views, byPeriod, "detail_views", fmtInt),
@@ -248,12 +262,6 @@ function renderGa4() {
   );
   renderKpis("ga4Summary", kpis);
 
-  // ── Trend charts ─────────────────────────────────────────────────────────
-  lineChart("chartGa4Sessions", "ga4TSessions", byPeriod, "period", "sessions", fmtInt, C.primary, C.primarySoft);
-  lineChart("chartGa4Purchases", "ga4TPurchases", byPeriod, "period", "purchases", fmtInt, C.positive, C.positiveSoft);
-  lineChart("chartGa4Revenue", "ga4TRevenue", byPeriod, "period", "revenue", fmtMoney, C.primary, C.primarySoft);
-  lineChart("chartGa4Bounce", "ga4TBounce", byPeriod, "period", "bounce_rate", fmtPct, C.warning, C.warningSoft);
-
   // ── Funnel ───────────────────────────────────────────────────────────────
   const funnelSteps = [
     ["유입", totals.sessions, null],
@@ -267,23 +275,14 @@ function renderGa4() {
   }
   renderFunnel("ga4Funnel", funnelSteps);
 
-  // ── Channel bar chart ────────────────────────────────────────────────────
-  const channelRows = aggregateRows(rows, ["channel"], {
-    sessions: "sum", detail_views: "sum", checkout_starts: "sum",
-    purchases: "sum", revenue: "sum",
-    bounce_sessions: "sum", total_duration: "sum",
-  }).sort((a, b) => b.purchases - a.purchases || b.sessions - a.sessions);
-  channelRows.forEach(recomputeGa4Derived);
+  // ── Channel table (comparison) ───────────────────────────────────────────
+  renderGa4ChannelTable(rows, prevRows);
 
-  barChartH(
-    "chartGa4Channels",
-    "ga4ChannelWrap",
-    channelRows.slice(0, 10),
-    "channel",
-    "purchases",
-    (v, row) => `구매 ${fmtInt(v)} · 구매율 ${fmtPct(row.purchase_rate)} · 유입 ${fmtInt(row.sessions)}`,
-    C.primary,
-  );
+  // ── Trend charts ─────────────────────────────────────────────────────────
+  lineChart("chartGa4Sessions", "ga4TSessions", byPeriod, "period", "sessions", fmtInt, C.primary, C.primarySoft);
+  lineChart("chartGa4Purchases", "ga4TPurchases", byPeriod, "period", "purchases", fmtInt, C.positive, C.positiveSoft);
+  lineChart("chartGa4Revenue", "ga4TRevenue", byPeriod, "period", "revenue", fmtMoney, C.primary, C.primarySoft);
+  lineChart("chartGa4Bounce", "ga4TBounce", byPeriod, "period", "bounce_rate", fmtPct, C.warning, C.warningSoft);
 
   // ── Device ───────────────────────────────────────────────────────────────
   renderGa4Device();
@@ -325,11 +324,55 @@ function renderGa4() {
   `).join("");
 }
 
+// ── GA4 Channel Table ─────────────────────────────────────────────────────────
+function renderGa4ChannelTable(rows, prevRows) {
+  const aggMetrics = {
+    sessions: "sum", detail_views: "sum", checkout_starts: "sum",
+    purchases: "sum", revenue: "sum",
+    bounce_sessions: "sum", total_duration: "sum",
+  };
+
+  const curr = aggregateRows(rows, ["channel"], aggMetrics)
+    .sort((a, b) => b.sessions - a.sessions);
+  curr.forEach(recomputeGa4Derived);
+
+  const prev = aggregateRows(prevRows, ["channel"], aggMetrics);
+  prev.forEach(recomputeGa4Derived);
+  const prevMap = new Map(prev.map((r) => [r.channel, r]));
+
+  const maxSessions = Math.max(...curr.map((r) => r.sessions), 1);
+
+  document.getElementById("ga4ChannelTable").innerHTML = curr.slice(0, 12).map((row) => {
+    const p = prevMap.get(row.channel);
+    const pct = row.sessions / maxSessions * 100;
+    const sharePct = (maxSessions > 0
+      ? row.sessions / curr.reduce((s, r) => s + r.sessions, 0) * 100 : 0).toFixed(1);
+
+    return `
+      <tr>
+        <td><strong>${esc(row.channel || "(direct)")}</strong></td>
+        <td class="num">
+          <div class="mini-bar-wrap">
+            <span>${fmtInt(row.sessions)}${p ? inlineDelta(row.sessions, p.sessions) : ""}</span>
+            <div class="mini-bar-track"><div class="mini-bar-fill" style="width:${pct.toFixed(1)}%"></div></div>
+          </div>
+        </td>
+        <td class="num">${sharePct}%</td>
+        <td class="num">${fmtInt(row.purchases)}${p ? inlineDelta(row.purchases, p.purchases) : ""}</td>
+        <td class="num">${fmtPct(row.purchase_rate)}</td>
+        <td class="num">${fmtMoney(row.revenue)}${p ? inlineDelta(row.revenue, p.revenue) : ""}</td>
+        <td class="num">${fmtPct(row.bounce_rate)}</td>
+        <td class="num">${fmtDuration(row.avg_session_duration)}</td>
+      </tr>
+    `;
+  }).join("");
+}
+
 function renderGa4Device() {
   const rows = filterByDate(state.data.ga4?.device_rows || []);
   if (!rows.length) {
     document.getElementById("ga4DeviceTable").innerHTML =
-      `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px">기기별 데이터 없음 (파이프라인 재실행 필요)</td></tr>`;
+      `<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px">기기별 데이터 없음 (파이프라인 재실행 필요)</td></tr>`;
     return;
   }
 
@@ -342,7 +385,6 @@ function renderGa4Device() {
 
   const deviceLabels = { desktop: "데스크탑", mobile: "모바일", tablet: "태블릿" };
 
-  // Doughnut chart
   doughnutChart(
     "chartGa4Device",
     byDevice.map((r) => deviceLabels[r.device_category] || r.device_category),
@@ -350,12 +392,10 @@ function renderGa4Device() {
     C.device,
   );
 
-  // Table
   document.getElementById("ga4DeviceTable").innerHTML = byDevice.map((row) => `
     <tr>
       <td><strong>${esc(deviceLabels[row.device_category] || row.device_category)}</strong></td>
       <td class="num">${fmtInt(row.sessions)}</td>
-      <td class="num">${fmtInt(row.detail_views)}</td>
       <td class="num">${fmtInt(row.purchases)}</td>
       <td class="num">${fmtPct(row.purchase_rate)}</td>
       <td class="num">${fmtMoney(row.revenue)}</td>
@@ -390,7 +430,7 @@ function renderGa4Landing() {
 
   document.getElementById("ga4LandingTable").innerHTML = byLanding.slice(0, 100).map((row) => `
     <tr>
-      <td style="max-width:320px;overflow:hidden;text-overflow:ellipsis" title="${esc(row.landing_page)}">${esc(row.landing_page)}</td>
+      <td style="max-width:280px;overflow:hidden;text-overflow:ellipsis" title="${esc(row.landing_page)}">${esc(row.landing_page)}</td>
       <td class="num">${fmtInt(row.sessions)}</td>
       <td class="num">${fmtPct(row.bounce_rate)}</td>
       <td class="num">${fmtDuration(row.avg_session_duration)}</td>
@@ -406,8 +446,9 @@ function renderGa4Landing() {
 // ═════════════════════════════════════════════════════════════════════════════
 
 function renderMeta() {
-  const rawRows = filterByDate(state.data.meta?.[state.metaLevel] || []);
-  const keys = metaKeys(state.metaLevel);
+  const allRows = state.data.meta?.[state.metaLevel] || [];
+  const rawRows = filterByDate(allRows);
+  const keys    = metaKeys(state.metaLevel);
 
   const byPeriod = aggregateRows(rawRows, ["period"], {
     impressions: "sum", reach: "sum", clicks: "sum",
@@ -432,17 +473,24 @@ function renderMeta() {
     kpi("ROAS", totals.roas, "Value / Spend", cur.roas, prev?.roas, byPeriod, "roas", fmtDecimal, true),
   ]);
 
+  // ── Campaign Review Table ────────────────────────────────────────────────
+  const levelLabel = metaLevelLabels[state.metaLevel];
+  document.getElementById("metaReviewTitle").textContent = `${levelLabel} 성과 리뷰`;
+
+  const comp = getComparisonPeriod();
+  const prevAllRows = comp ? filterByDateRange(allRows, comp.start, comp.end) : [];
+
+  renderMetaCampaignReview(rawRows, prevAllRows, keys, totals);
+
   // ── Trend charts ─────────────────────────────────────────────────────────
-  lineChart("chartMetaSpend", "metaTSpend", byPeriod, "period", "spend", fmtMoney, C.negative, C.negativeSoft);
-  lineChart("chartMetaConversions", "metaTConversions", byPeriod, "period", "conversions", fmtInt, C.positive, C.positiveSoft);
+  lineChart("chartMetaSpend",       "metaTSpend",       byPeriod, "period", "spend",       fmtMoney,   C.negative, C.negativeSoft);
+  lineChart("chartMetaConversions", "metaTConversions", byPeriod, "period", "conversions", fmtInt,     C.positive, C.positiveSoft);
   const cpaRows = byPeriod.map((r) => ({ ...r, cpa: r.conversions ? r.spend / r.conversions : 0 }));
-  lineChart("chartMetaCpa", "metaTCpa", cpaRows, "period", "cpa", fmtMoney, C.warning, C.warningSoft);
+  lineChart("chartMetaCpa",  "metaTCpa",  cpaRows,  "period", "cpa",  fmtMoney,   C.warning, C.warningSoft);
   lineChart("chartMetaRoas", "metaTRoas", byPeriod, "period", "roas", fmtDecimal, C.primary, C.primarySoft);
 
-  // ── Drilldown bar chart ──────────────────────────────────────────────────
-  document.getElementById("metaLevelTitle").textContent = `${metaLevelLabels[state.metaLevel]} 성과`;
-  document.getElementById("metaTableTitle").textContent = `${metaLevelLabels[state.metaLevel]}별 성과 테이블`;
-
+  // ── Detail table ─────────────────────────────────────────────────────────
+  document.getElementById("metaTableTitle").textContent = `${levelLabel}별 성과 테이블`;
   const grouped = aggregateRows(rawRows, ["period", ...keys], {
     impressions: "sum", reach: "sum", clicks: "sum",
     conversions: "sum", spend: "sum", conversion_value: "sum",
@@ -450,29 +498,96 @@ function renderMeta() {
   grouped.forEach(addMetaRates);
   const previousMap = buildPreviousMap(grouped, keys);
 
-  const latestPeriod = byPeriod[byPeriod.length - 1]?.period;
-  const latestRows = grouped
-    .filter((r) => r.period === latestPeriod)
-    .sort((a, b) => b.spend - a.spend)
-    .slice(0, 14)
-    .map((r) => ({ ...r, _label: metaDisplayLabel(r) }));
-
-  barChartH(
-    "chartMetaDrilldown",
-    "metaDrilldownWrap",
-    latestRows,
-    "_label",
-    "spend",
-    (v, row) => {
-      const prev = previousMap.get(prevKey(row, keys));
-      return `${fmtMoney(v)}${deltaText(v, prev?.spend)} · ${fmtInt(row.conversions)} 전환 · ROAS ${fmtDecimal(row.roas)}`;
-    },
-    C.primary,
-  );
-
-  // ── Detail table ─────────────────────────────────────────────────────────
   renderMetaHead(keys);
   renderMetaTable(grouped, previousMap, keys);
+}
+
+// ── Meta Campaign Review Table ────────────────────────────────────────────────
+function renderMetaCampaignReview(currRows, prevRows, keys, accountTotals) {
+  // Aggregate current period by entity keys
+  const curr = aggregateRows(currRows, keys, {
+    impressions: "sum", reach: "sum", clicks: "sum",
+    conversions: "sum", spend: "sum", conversion_value: "sum",
+  });
+  curr.forEach(addMetaRates);
+  curr.sort((a, b) => b.spend - a.spend);
+
+  // Aggregate previous period by entity keys
+  const prev = aggregateRows(prevRows, keys, {
+    impressions: "sum", reach: "sum", clicks: "sum",
+    conversions: "sum", spend: "sum", conversion_value: "sum",
+  });
+  prev.forEach(addMetaRates);
+  const prevMap = new Map(prev.map((r) => [keys.map((k) => r[k] || "").join("||"), r]));
+
+  // Account-level benchmarks
+  const acctRoas = accountTotals.roas || 0;
+  const acctCpa  = accountTotals.cpa  || 0;
+
+  // Build headers
+  const entityHeaders = keys.map((k) => `<th>${metaHeaderLabel(k)}</th>`).join("");
+  document.getElementById("metaReviewHead").innerHTML = `
+    <tr>
+      ${entityHeaders}
+      <th>상태</th>
+      <th class="num">비용</th>
+      <th class="num">노출</th>
+      <th class="num">CTR</th>
+      <th class="num">전환</th>
+      <th class="num">전환율(CVR)</th>
+      <th class="num">매출</th>
+      <th class="num">CPA</th>
+      <th class="num">ROAS</th>
+    </tr>
+  `;
+
+  document.getElementById("metaReviewTable").innerHTML = curr.slice(0, 50).map((row) => {
+    const pk = keys.map((k) => row[k] || "").join("||");
+    const p  = prevMap.get(pk);
+    const status = metaStatus(row, acctRoas);
+
+    // Color class for ROAS (higher = better)
+    const roasCls = acctRoas > 0
+      ? (row.roas >= acctRoas * 1.1 ? "cell-good" : row.roas >= acctRoas * 0.7 ? "cell-warn" : "cell-bad")
+      : "";
+
+    // Color class for CPA (lower = better)
+    const cpaCls = acctCpa > 0 && row.cpa > 0
+      ? (row.cpa <= acctCpa * 0.9 ? "cell-good" : row.cpa <= acctCpa * 1.3 ? "cell-warn" : "cell-bad")
+      : "";
+
+    const entityCells = keys.map((k) => {
+      const val = row[k] || "-";
+      const isName = k.endsWith("_name");
+      return `<td${isName ? ' class="name-cell"' : ""} title="${esc(val)}">${esc(val)}</td>`;
+    }).join("");
+
+    return `
+      <tr>
+        ${entityCells}
+        <td><span class="status-badge ${status.cls}">${status.label}</span></td>
+        <td class="num">${fmtMoney(row.spend)}${p ? inlineDelta(row.spend, p.spend) : ""}</td>
+        <td class="num">${fmtInt(row.impressions)}${p ? inlineDelta(row.impressions, p.impressions) : ""}</td>
+        <td class="num">${fmtPct(row.ctr)}${p ? inlineDelta(row.ctr, p.ctr, true) : ""}</td>
+        <td class="num">${fmtInt(row.conversions)}${p ? inlineDelta(row.conversions, p.conversions) : ""}</td>
+        <td class="num">${fmtPct(row.cvr)}${p ? inlineDelta(row.cvr, p.cvr, true) : ""}</td>
+        <td class="num">${fmtMoney(row.conversion_value)}${p ? inlineDelta(row.conversion_value, p.conversion_value) : ""}</td>
+        <td class="num ${cpaCls}">${row.cpa ? fmtMoney(row.cpa) : "-"}${p && p.cpa && row.cpa ? inlineDelta(row.cpa, p.cpa) : ""}</td>
+        <td class="num ${roasCls}">${fmtDecimal(row.roas)}${p ? inlineDelta(row.roas, p.roas, true) : ""}</td>
+      </tr>
+    `;
+  }).join("");
+}
+
+function metaStatus(row, acctRoas) {
+  if (!row.spend && !row.conversions) return { label: "데이터 없음", cls: "status-off" };
+  if (acctRoas <= 0) {
+    // No ROAS benchmark: fall back to spend-based heuristic
+    return row.conversions > 0 ? { label: "모니터링", cls: "status-warn" } : { label: "리뷰 필요", cls: "status-bad" };
+  }
+  if (row.roas >= acctRoas * 1.2) return { label: "확장 고려", cls: "status-good" };
+  if (row.roas >= acctRoas * 0.7) return { label: "모니터링",  cls: "status-warn" };
+  return { label: "리뷰 필요", cls: "status-bad" };
 }
 
 function renderMetaHead(keys) {
@@ -578,10 +693,7 @@ function lineChart(canvasId, latestId, rows, labelKey, valueKey, formatter, colo
       scales: {
         x: {
           grid: { display: false },
-          ticks: {
-            maxTicksLimit: 8,
-            maxRotation: 0,
-          },
+          ticks: { maxTicksLimit: 8, maxRotation: 0 },
         },
         y: {
           grid: { color: "#edf2f7" },
@@ -589,70 +701,6 @@ function lineChart(canvasId, latestId, rows, labelKey, valueKey, formatter, colo
           ticks: {
             maxTicksLimit: 5,
             callback: (v) => formatter(v),
-          },
-        },
-      },
-    },
-  });
-}
-
-function barChartH(canvasId, wrapperId, rows, labelKey, valueKey, tooltipFn, color) {
-  destroyChart(canvasId);
-  const canvas = document.getElementById(canvasId);
-  const wrapper = document.getElementById(wrapperId);
-  if (!canvas || !rows.length) return;
-
-  const height = Math.max(rows.length * 42 + 24, 120);
-  if (wrapper) wrapper.style.height = height + "px";
-
-  const labels = rows.map((r) => r[labelKey] || "-");
-  const values = rows.map((r) => Number(r[valueKey] || 0));
-  const maxVal = Math.max(...values, 1);
-
-  state.charts[canvasId] = new Chart(canvas, {
-    type: "bar",
-    data: {
-      labels,
-      datasets: [{
-        data: values,
-        backgroundColor: values.map((v) => v === maxVal ? color : color + "bb"),
-        borderRadius: 4,
-        borderSkipped: false,
-      }],
-    },
-    options: {
-      indexAxis: "y",
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        tooltip: {
-          callbacks: {
-            label: (ctx) => ` ${tooltipFn(ctx.raw, rows[ctx.dataIndex])}`,
-          },
-        },
-      },
-      scales: {
-        x: {
-          grid: { color: "#edf2f7" },
-          border: { display: false },
-          ticks: {
-            maxTicksLimit: 5,
-            callback: (v) => {
-              // auto-format based on magnitude
-              if (v >= 1000000) return (v / 1000000).toFixed(1) + "M";
-              if (v >= 1000) return (v / 1000).toFixed(0) + "K";
-              return String(v);
-            },
-          },
-        },
-        y: {
-          grid: { display: false },
-          ticks: {
-            font: { size: 11, weight: "700" },
-            callback: (_, i) => {
-              const label = labels[i] || "";
-              return label.length > 28 ? label.slice(0, 26) + "…" : label;
-            },
           },
         },
       },
@@ -757,7 +805,6 @@ function sparklineSvg(rows, metric) {
 // ═════════════════════════════════════════════════════════════════════════════
 
 function renderFunnel(id, steps) {
-  // steps: [label, value, prevStepValue]
   const maxVal = Math.max(...steps.map((s) => Number(s[1] || 0)), 1);
   document.getElementById(id).innerHTML = steps.map(([label, value, fromValue], i) => {
     const width = Math.max(Number(value || 0) / maxVal * 100, 1);
@@ -812,22 +859,20 @@ function sumFields(rows, fields) {
 
 function recomputeGa4Derived(row) {
   const s = row.sessions || 0;
-  row.bounce_rate        = s ? (row.bounce_sessions || 0) / s * 100 : 0;
-  row.avg_session_duration = s ? (row.total_duration || 0) / s : 0;
-  row.detail_view_rate   = s ? (row.detail_views || 0) / s * 100 : 0;
-  row.checkout_rate      = s ? (row.checkout_starts || 0) / s * 100 : 0;
-  row.purchase_rate      = s ? (row.purchases || 0) / s * 100 : 0;
-  row.detail_to_purchase_rate = row.detail_views
-    ? (row.purchases || 0) / row.detail_views * 100 : 0;
-  row.checkout_to_purchase_rate = row.checkout_starts
-    ? (row.purchases || 0) / row.checkout_starts * 100 : 0;
+  row.bounce_rate              = s ? (row.bounce_sessions || 0) / s * 100 : 0;
+  row.avg_session_duration     = s ? (row.total_duration  || 0) / s : 0;
+  row.detail_view_rate         = s ? (row.detail_views    || 0) / s * 100 : 0;
+  row.checkout_rate            = s ? (row.checkout_starts || 0) / s * 100 : 0;
+  row.purchase_rate            = s ? (row.purchases       || 0) / s * 100 : 0;
+  row.detail_to_purchase_rate  = row.detail_views   ? (row.purchases || 0) / row.detail_views   * 100 : 0;
+  row.checkout_to_purchase_rate = row.checkout_starts ? (row.purchases || 0) / row.checkout_starts * 100 : 0;
 }
 
 function addMetaRates(row) {
-  const imp  = row.impressions || 0;
-  const clk  = row.clicks || 0;
-  const conv = row.conversions || 0;
-  const sp   = row.spend || 0;
+  const imp  = row.impressions  || 0;
+  const clk  = row.clicks       || 0;
+  const conv = row.conversions  || 0;
+  const sp   = row.spend        || 0;
   const cv   = row.conversion_value || 0;
   row.ctr  = imp  ? clk  / imp  * 100 : 0;
   row.cvr  = clk  ? conv / clk  * 100 : 0;
@@ -863,6 +908,13 @@ function filterByDate(rows) {
     const d = r.date;
     return (!state.startDate || d >= state.startDate) &&
            (!state.endDate   || d <= state.endDate);
+  });
+}
+
+function filterByDateRange(rows, startDate, endDate) {
+  return rows.filter((r) => {
+    const d = r.date;
+    return (!startDate || d >= startDate) && (!endDate || d <= endDate);
   });
 }
 
@@ -904,13 +956,6 @@ function metaHeaderLabel(key) {
   return { campaign_name: "캠페인", adset_name: "광고세트", ad_name: "광고", placement: "Placement" }[key] || key;
 }
 
-function metaDisplayLabel(row) {
-  if (state.metaLevel === "placements") return `${row.ad_name || "-"} · ${row.placement || "-"}`;
-  if (state.metaLevel === "ads")        return row.ad_name || "-";
-  if (state.metaLevel === "adsets")     return row.adset_name || "-";
-  return row.campaign_name || "-";
-}
-
 // ═════════════════════════════════════════════════════════════════════════════
 // Delta indicators
 // ═════════════════════════════════════════════════════════════════════════════
@@ -940,13 +985,6 @@ function inlineDelta(current, previous, pointDiff = false) {
   return `<span class="delta-inline ${cls}">${txt}</span>`;
 }
 
-function deltaText(current, previous) {
-  if (previous == null || Number(previous) === 0) return "";
-  const diff = Number(current || 0) - Number(previous || 0);
-  const pct  = diff / Math.abs(Number(previous)) * 100;
-  return ` (${pct > 0 ? "+" : ""}${pct.toFixed(0)}%)`;
-}
-
 // ═════════════════════════════════════════════════════════════════════════════
 // Formatters
 // ═════════════════════════════════════════════════════════════════════════════
@@ -955,7 +993,9 @@ function fmtInt(v)      { return Math.round(Number(v || 0)).toLocaleString("ko-K
 function fmtMoney(v)    { return `₩${Math.round(Number(v || 0)).toLocaleString("ko-KR")}`; }
 function fmtPct(v)      { return `${Number(v || 0).toFixed(1)}%`; }
 function fmtDecimal(v)  { return Number(v || 0).toFixed(2); }
-function fmtDate(d)     { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
+function fmtDate(d)     {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+}
 
 function fmtDuration(seconds) {
   const s = Math.round(Number(seconds || 0));

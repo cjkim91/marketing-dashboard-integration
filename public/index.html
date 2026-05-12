@@ -53,6 +53,47 @@
         <!-- KPI Band -->
         <section id="ga4Summary" class="kpi-grid"></section>
 
+        <!-- Analysis Row: Funnel + Channel Table -->
+        <div class="analysis-grid">
+          <article class="panel">
+            <div class="panel-head">
+              <div>
+                <p class="section-label">Funnel</p>
+                <h2>전체 퍼널</h2>
+                <p>유입 → 상세조회 → 결제시작 → 구매</p>
+              </div>
+            </div>
+            <div id="ga4Funnel" class="funnel"></div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-head">
+              <div>
+                <p class="section-label">Channel</p>
+                <h2>유입 경로별 성과</h2>
+                <p>채널별 유입·구매·매출 비교 (전 기간 대비)</p>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>채널</th>
+                    <th class="num">유입</th>
+                    <th class="num">비중</th>
+                    <th class="num">구매</th>
+                    <th class="num">구매율</th>
+                    <th class="num">매출</th>
+                    <th class="num">이탈률</th>
+                    <th class="num">세션 시간</th>
+                  </tr>
+                </thead>
+                <tbody id="ga4ChannelTable"></tbody>
+              </table>
+            </div>
+          </article>
+        </div>
+
         <!-- Trend Band -->
         <section class="panel">
           <div class="panel-head">
@@ -90,90 +131,64 @@
           </div>
         </section>
 
-        <!-- Funnel + Channel -->
-        <section class="diagnostic-grid">
+        <!-- Device + Landing Row -->
+        <div class="analysis-grid analysis-grid--wide">
+
           <article class="panel">
             <div class="panel-head">
               <div>
-                <p class="section-label">Funnel</p>
-                <h2>전체 퍼널</h2>
-                <p>유입 → 상세조회 → 결제시작 → 구매</p>
+                <p class="section-label">Device</p>
+                <h2>기기별 성과</h2>
+                <p>데스크탑 · 모바일 · 태블릿</p>
               </div>
             </div>
-            <div id="ga4Funnel" class="funnel"></div>
+            <div class="device-grid">
+              <div class="device-donut-wrap"><canvas id="chartGa4Device"></canvas></div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>기기</th>
+                      <th class="num">유입</th>
+                      <th class="num">구매</th>
+                      <th class="num">구매율</th>
+                      <th class="num">매출</th>
+                      <th class="num">이탈률</th>
+                      <th class="num">세션 시간</th>
+                    </tr>
+                  </thead>
+                  <tbody id="ga4DeviceTable"></tbody>
+                </table>
+              </div>
+            </div>
           </article>
 
           <article class="panel">
             <div class="panel-head">
               <div>
-                <p class="section-label">Channel</p>
-                <h2>유입 경로별 구매</h2>
-                <p>채널별 구매 수와 구매율 비교</p>
+                <p class="section-label">Landing</p>
+                <h2>랜딩페이지 성과</h2>
+                <p>유입별 이탈률 · 세션 시간 · 전환 (클릭으로 정렬)</p>
               </div>
             </div>
-            <div id="ga4ChannelWrap" class="chart-canvas-wrap-bar">
-              <canvas id="chartGa4Channels"></canvas>
-            </div>
-          </article>
-        </section>
-
-        <!-- Device Breakdown -->
-        <section class="panel">
-          <div class="panel-head">
-            <div>
-              <p class="section-label">Device</p>
-              <h2>기기별 성과</h2>
-              <p>데스크탑 · 모바일 · 태블릿별 유입과 전환</p>
-            </div>
-          </div>
-          <div class="device-grid">
-            <div class="device-donut-wrap"><canvas id="chartGa4Device"></canvas></div>
             <div class="table-wrap">
               <table>
                 <thead>
                   <tr>
-                    <th>기기</th>
-                    <th class="num">유입</th>
-                    <th class="num">상세조회</th>
-                    <th class="num">구매</th>
-                    <th class="num">구매율</th>
-                    <th class="num">매출</th>
-                    <th class="num">이탈률</th>
-                    <th class="num">세션 시간</th>
+                    <th>랜딩페이지</th>
+                    <th class="num sortable" data-sort-key="sessions">유입 <span class="sort-icon"></span></th>
+                    <th class="num sortable" data-sort-key="bounce_rate">이탈률 <span class="sort-icon"></span></th>
+                    <th class="num sortable" data-sort-key="avg_session_duration">세션 시간 <span class="sort-icon"></span></th>
+                    <th class="num sortable" data-sort-key="purchases">구매 <span class="sort-icon"></span></th>
+                    <th class="num sortable" data-sort-key="purchase_rate">구매율 <span class="sort-icon"></span></th>
+                    <th class="num sortable" data-sort-key="revenue">매출 <span class="sort-icon"></span></th>
                   </tr>
                 </thead>
-                <tbody id="ga4DeviceTable"></tbody>
+                <tbody id="ga4LandingTable"></tbody>
               </table>
             </div>
-          </div>
-        </section>
-
-        <!-- Landing Page -->
-        <section class="panel">
-          <div class="panel-head">
-            <div>
-              <p class="section-label">Landing</p>
-              <h2>랜딩페이지 성과</h2>
-              <p>유입별 이탈률 · 세션 시간 · 전환 비교 (클릭으로 정렬)</p>
-            </div>
-          </div>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>랜딩페이지</th>
-                  <th class="num sortable" data-sort-key="sessions">유입 <span class="sort-icon"></span></th>
-                  <th class="num sortable" data-sort-key="bounce_rate">이탈률 <span class="sort-icon"></span></th>
-                  <th class="num sortable" data-sort-key="avg_session_duration">세션 시간 <span class="sort-icon"></span></th>
-                  <th class="num sortable" data-sort-key="purchases">구매 <span class="sort-icon"></span></th>
-                  <th class="num sortable" data-sort-key="purchase_rate">구매율 <span class="sort-icon"></span></th>
-                  <th class="num sortable" data-sort-key="revenue">매출 <span class="sort-icon"></span></th>
-                </tr>
-              </thead>
-              <tbody id="ga4LandingTable"></tbody>
-            </table>
-          </div>
-        </section>
+          </article>
+        </div>
 
         <!-- Detail Table -->
         <section class="panel">
@@ -216,6 +231,29 @@
         <!-- KPI Band -->
         <section id="metaSummary" class="kpi-grid"></section>
 
+        <!-- Campaign Review Table (hero) -->
+        <section class="panel">
+          <div class="panel-head with-tabs">
+            <div>
+              <p class="section-label">Review</p>
+              <h2 id="metaReviewTitle">캠페인 성과 리뷰</h2>
+              <p>전환수 · 전환율 · 매출 · ROAS · CPA — 계정 평균 대비 색상 표시</p>
+            </div>
+            <div class="segmented compact" role="group" aria-label="Meta 레벨">
+              <button class="active" data-meta-level="campaigns">캠페인</button>
+              <button data-meta-level="adsets">광고세트</button>
+              <button data-meta-level="ads">광고</button>
+              <button data-meta-level="placements">Placement</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead id="metaReviewHead"></thead>
+              <tbody id="metaReviewTable"></tbody>
+            </table>
+          </div>
+        </section>
+
         <!-- Trend Band -->
         <section class="panel">
           <div class="panel-head">
@@ -253,33 +291,13 @@
           </div>
         </section>
 
-        <!-- Drilldown -->
-        <section class="panel">
-          <div class="panel-head with-tabs">
-            <div>
-              <p class="section-label">Drilldown</p>
-              <h2 id="metaLevelTitle">캠페인 성과</h2>
-              <p>계층별 성과 비교 (최근 기간 기준)</p>
-            </div>
-            <div class="segmented compact" role="group" aria-label="Meta 레벨">
-              <button class="active" data-meta-level="campaigns">캠페인</button>
-              <button data-meta-level="adsets">광고세트</button>
-              <button data-meta-level="ads">광고</button>
-              <button data-meta-level="placements">Placement</button>
-            </div>
-          </div>
-          <div id="metaDrilldownWrap" class="chart-canvas-wrap-bar">
-            <canvas id="chartMetaDrilldown"></canvas>
-          </div>
-        </section>
-
         <!-- Detail Table -->
         <section class="panel">
           <div class="panel-head">
             <div>
               <p class="section-label">Detail</p>
               <h2 id="metaTableTitle">캠페인별 성과 테이블</h2>
-              <p>Placement 탭에서는 광고별 지면 성과를 전 기간 대비 비교합니다</p>
+              <p>기간별 전체 데이터 (Placement 탭에서는 지면별 상세)</p>
             </div>
           </div>
           <div class="table-wrap">
