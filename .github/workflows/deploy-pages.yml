@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+    # Bot이 데이터를 커밋해 push할 때 워크플로우가 재트리거되지 않게 데이터 폴더 제외.
+    paths-ignore:
+      - 'public/data/**'
   schedule:
     # ── Always rolling through "yesterday in KST" ─────────────────────────────
     # Primary build:  02:30 UTC  = 11:30 KST  (GA4 daily aggregates settled)
@@ -12,15 +15,23 @@ on:
     - cron: "30 9 * * *"
   workflow_dispatch:
     inputs:
+      mode:
+        description: "auto / backfill / incremental / refresh / merge-only"
+        required: false
+        default: "auto"
       since:
-        description: "Start date (YYYY-MM-DD). Leave blank for 90-day window."
+        description: "(refresh) Start date YYYY-MM-DD"
         required: false
       until:
-        description: "End date (YYYY-MM-DD). Leave blank to use yesterday (KST)."
+        description: "(refresh) End date YYYY-MM-DD"
         required: false
+      lookback_days:
+        description: "(backfill) Days to backfill"
+        required: false
+        default: "90"
 
 permissions:
-  contents: read
+  contents: write    # daily/*.json 과 dashboard.json을 커밋해 push 하려면 write 필요
   pages: write
   id-token: write
 
@@ -37,6 +48,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          # bot push가 가능하도록 fetch-depth 0 + persist-credentials
+          fetch-depth: 0
+          persist-credentials: true
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
@@ -46,33 +61,53 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Build dashboard data
+      - name: Build dashboard data (incremental)
         env:
           GOOGLE_APPLICATION_CREDENTIALS_JSON: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS_JSON }}
           GA4_PROPERTY_ID: ${{ secrets.GA4_PROPERTY_ID }}
           FACEBOOK_ACCESS_TOKEN: ${{ secrets.FACEBOOK_ACCESS_TOKEN }}
           AD_ACCOUNT_ID: ${{ secrets.AD_ACCOUNT_ID }}
           META_API_VERSION: ${{ secrets.META_API_VERSION }}
+          INPUT_MODE: ${{ github.event.inputs.mode }}
           INPUT_SINCE: ${{ github.event.inputs.since }}
           INPUT_UNTIL: ${{ github.event.inputs.until }}
+          INPUT_LOOKBACK: ${{ github.event.inputs.lookback_days }}
         run: |
+          set -e
           if [ -z "$GOOGLE_APPLICATION_CREDENTIALS_JSON" ] || [ -z "$FACEBOOK_ACCESS_TOKEN" ] || [ -z "$AD_ACCOUNT_ID" ]; then
-            echo "Dashboard data secrets are not configured. Deploying UI without dashboard.json."
+            echo "::warning::Dashboard data secrets are not configured. Deploying UI without dashboard.json."
             exit 0
           fi
+
           python -m pip install -r requirements.txt
           printf '%s' "$GOOGLE_APPLICATION_CREDENTIALS_JSON" > "$RUNNER_TEMP/ga4-service-account.json"
           export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/ga4-service-account.json"
 
-          # The build script defaults to D-1 KST when --since/--until omitted, but
-          # we pass explicit values so workflow_dispatch overrides work cleanly.
-          SINCE="${INPUT_SINCE:-$(TZ=Asia/Seoul date -d '90 days ago' +%F)}"
-          UNTIL="${INPUT_UNTIL:-$(TZ=Asia/Seoul date -d 'yesterday' +%F)}"
-          echo "Building window: $SINCE → $UNTIL (KST)"
-          python scripts/build_dashboard_data.py \
-            --since "$SINCE" \
-            --until "$UNTIL" \
-            --output public/data/dashboard.json
+          MODE="${INPUT_MODE:-auto}"
+          ARGS=("--mode" "$MODE")
+          if [ -n "$INPUT_SINCE" ]; then ARGS+=("--since" "$INPUT_SINCE"); fi
+          if [ -n "$INPUT_UNTIL" ]; then ARGS+=("--until" "$INPUT_UNTIL"); fi
+          if [ -n "$INPUT_LOOKBACK" ]; then ARGS+=("--lookback-days" "$INPUT_LOOKBACK"); fi
+
+          echo "Running: python scripts/build_dashboard_data.py ${ARGS[*]}"
+          python scripts/build_dashboard_data.py "${ARGS[@]}"
+
+      - name: Commit refreshed data
+        if: success()
+        run: |
+          set -e
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git add public/data/daily public/data/dashboard.json 2>/dev/null || true
+          if git diff --staged --quiet; then
+            echo "No data changes to commit."
+          else
+            COMMIT_DATE="$(TZ=Asia/Seoul date +%F)"
+            git commit -m "data: refresh through ${COMMIT_DATE} (KST) [skip ci]"
+            # 재시도 안전한 push: 원격에 다른 commit이 있으면 rebase 후 재시도
+            git pull --rebase origin main || true
+            git push origin main
+          fi
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

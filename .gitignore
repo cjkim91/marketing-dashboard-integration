@@ -10,5 +10,7 @@ __pycache__/
 *oauth-client*.json
 modern-spirit-*.json
 
-# Generated dashboard data
+# Generated dashboard data — kept in repo so daily refreshes are version-controlled
 !public/data/dashboard.json
+!public/data/daily/
+!public/data/daily/*.json

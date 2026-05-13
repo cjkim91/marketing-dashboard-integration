@@ -3,44 +3,72 @@
 GA4와 Meta Marketing API를 연결해 **항상 전일자(D-1, KST)까지** 조회 가능한
 정적 HTML 대시보드를 GitHub Pages로 배포한다.
 
-## 데이터 파이프라인
+## 데이터 파이프라인 (incremental, 7-day rolling refresh)
 
 ```text
-        ┌─ GA4 Data API ─────────┐
-        │  property 311666548    │
-        │  view_item / cart /    │
-        │  begin_checkout /      │
-        │  purchase 이벤트       │
-        └────────────┬───────────┘
-                     │
-        ┌────────────▼───────────┐         ┌────────────────────────┐
-        │ scripts/               │         │  Meta Marketing API    │
-        │ build_dashboard_data.py│ ◄─────  │  ad account            │
-        │ (KST 어제까지 90일)    │         │  campaign/adset/ad/    │
-        └────────────┬───────────┘         │  placement insights    │
-                     │                     └────────────────────────┘
-                     ▼
-        public/data/dashboard.json
-                     │
-                     ▼
-        public/ → GitHub Pages
+        ┌─ GA4 Data API ─────────┐         ┌────────────────────────┐
+        │  property 311666548    │         │  Meta Marketing API    │
+        │  view_item / cart /    │         │  ad account            │
+        │  begin_checkout /      │         │  campaign/adset/ad/    │
+        │  purchase              │         │  placement insights    │
+        └────────────┬───────────┘         └────────────┬───────────┘
+                     │                                  │
+                     ▼                                  ▼
+        ┌────────────────────────────────────────────────────────────┐
+        │ scripts/build_dashboard_data.py                            │
+        │                                                            │
+        │  매번 최근 7일만 받아 delete-and-insert ─ Meta API 안전    │
+        │  GA4 / Meta attribution 보정도 자동 반영                   │
+        └─────────┬──────────────────────────────────────────────────┘
+                  │
+                  ▼ 일자별 분리 저장
+        public/data/daily/2026-05-11.json   ← raw, version-controlled
+        public/data/daily/2026-05-10.json
+        public/data/daily/...
+                  │
+                  ▼ merge_daily_files()
+        public/data/dashboard.json   ← 프론트엔드가 읽는 머지된 뷰
+                  │
+                  ▼
+        GitHub Actions가 자동 commit → push
+                  │
+                  ▼
+        GitHub Pages 정적 배포
 ```
 
-빌드 스크립트는 인자 없이 호출하면 KST 기준 어제를 종료일,
-그 90일 전을 시작일로 자동 사용한다.
+### 운영 모드
 
 ```bash
-GOOGLE_APPLICATION_CREDENTIALS=/Users/aiden/secrets/personal-gcp-sa.json \
-GA4_PROPERTY_ID=311666548 \
-python scripts/build_dashboard_data.py --output public/data/dashboard.json
+# 자동 — daily/ 비어 있으면 90일 백필, 아니면 7일 incremental (워크플로우 기본값)
+python scripts/build_dashboard_data.py
+
+# 명시적 90일 백필 (1회성)
+python scripts/build_dashboard_data.py --mode backfill --lookback-days 90
+
+# 최근 7일만 강제 재수신
+python scripts/build_dashboard_data.py --mode incremental
+
+# 임의 기간 재수신 (delete-and-insert)
+python scripts/build_dashboard_data.py --mode refresh --since 2026-04-01 --until 2026-04-30
+
+# API 없이 daily/*만 머지
+python scripts/build_dashboard_data.py --mode merge-only
 ```
 
-GitHub Actions(`.github/workflows/deploy-pages.yml`)는 매일 **두 번** 빌드한다.
+### 저장 위치
 
-- 02:30 UTC (= 11:30 KST) — 1차 빌드. GA4 일집계가 거의 마감된 시점.
-- 09:30 UTC (= 18:30 KST) — 2차 빌드. 1차가 실패했거나 일부 일자가 보정된 경우 복구.
+- `public/data/daily/YYYY-MM-DD.json` — 그날 한 번 받은 raw (GA4 + Meta 합본)
+- `public/data/dashboard.json` — 위 파일 전부를 합친 머지 뷰
+- 두 파일 모두 git에 커밋되어 push마다 GitHub Pages가 자동 갱신
 
-두 번 모두 종료일은 KST 어제이므로, 페이지를 열 때 항상 전일까지의 데이터가 보장된다.
+### 스케줄
+
+`.github/workflows/deploy-pages.yml`이 매일 **두 번** 자동 실행한다.
+
+- 02:30 UTC (= 11:30 KST) — 1차. GA4 일집계가 거의 마감된 시점.
+- 09:30 UTC (= 18:30 KST) — 2차. 1차 실패/보정에 대한 안전망.
+
+각 실행에서 `auto` 모드로 동작하므로, `daily/`가 비어 있으면 한 번 90일을 백필하고, 그 이후로는 항상 최근 7일만 갱신한다.
 
 생성된 JSON에는 신선도 메타가 포함된다.
 
