@@ -33,7 +33,11 @@ GA4_TRAFFIC_METRICS = [
     "sessions", "totalUsers", "newUsers", "totalRevenue",
     "bounceRate", "averageSessionDuration", "engagementRate",
 ]
-GA4_EVENT_METRICS = ["eventCount", "totalRevenue"]
+# Funnel stage counters use `sessions` (with an eventName filter) so the value
+# is "sessions where the event fired" — properly bounded by total sessions.
+# `eventCount` would over-count because a single session can fire view_item
+# multiple times (e.g. viewing several products).
+GA4_EVENT_METRICS = ["sessions", "totalRevenue"]
 
 GA4_DEVICE_DIMENSIONS = ["date", "deviceCategory"]
 GA4_DEVICE_METRICS = [
@@ -271,16 +275,16 @@ def build_ga4(property_id: str, since: str, until: str) -> dict[str, Any]:
     print("  GA4: fetching device breakdown …")
     device_traffic = run_ga4_report(property_id, since, until, GA4_DEVICE_DIMENSIONS, GA4_DEVICE_METRICS)
     device_detail = run_ga4_report(
-        property_id, since, until, GA4_DEVICE_DIMENSIONS, ["eventCount"], event_name="view_item"
+        property_id, since, until, GA4_DEVICE_DIMENSIONS, ["sessions"], event_name="view_item"
     )
     device_cart = run_ga4_report(
-        property_id, since, until, GA4_DEVICE_DIMENSIONS, ["eventCount"], event_name="add_to_cart"
+        property_id, since, until, GA4_DEVICE_DIMENSIONS, ["sessions"], event_name="add_to_cart"
     )
     device_checkout = run_ga4_report(
-        property_id, since, until, GA4_DEVICE_DIMENSIONS, ["eventCount"], event_name="begin_checkout"
+        property_id, since, until, GA4_DEVICE_DIMENSIONS, ["sessions"], event_name="begin_checkout"
     )
     device_purchase = run_ga4_report(
-        property_id, since, until, GA4_DEVICE_DIMENSIONS, ["eventCount", "totalRevenue"],
+        property_id, since, until, GA4_DEVICE_DIMENSIONS, ["sessions", "totalRevenue"],
         event_name="purchase"
     )
 
@@ -289,7 +293,7 @@ def build_ga4(property_id: str, since: str, until: str) -> dict[str, Any]:
         property_id, since, until, GA4_LANDING_DIMENSIONS, GA4_LANDING_METRICS, limit=2000
     )
     landing_purchase = run_ga4_report(
-        property_id, since, until, GA4_LANDING_DIMENSIONS, ["eventCount", "totalRevenue"],
+        property_id, since, until, GA4_LANDING_DIMENSIONS, ["sessions", "totalRevenue"],
         event_name="purchase", limit=2000,
     )
 
@@ -322,33 +326,35 @@ def build_ga4(property_id: str, since: str, until: str) -> dict[str, Any]:
             "total_duration": round(dur * sessions, 2),
         }
 
+    # ── Funnel stage counts: "sessions where event fired" ────────────────────
+    # GA4 returns the metric as `sessions` when used with an eventName filter.
     for row in detail_rows:
         key = key_from_row(row)
         if key not in merged:
             date_value, source, medium, campaign = key
             merged[key] = empty_ga4_row(date_value, source, medium, campaign)
-        merged[key]["detail_views"] += int(row.get("eventCount", 0) or 0)
+        merged[key]["detail_views"] += int(row.get("sessions", 0) or 0)
 
     for row in cart_rows:
         key = key_from_row(row)
         if key not in merged:
             date_value, source, medium, campaign = key
             merged[key] = empty_ga4_row(date_value, source, medium, campaign)
-        merged[key]["cart_adds"] += int(row.get("eventCount", 0) or 0)
+        merged[key]["cart_adds"] += int(row.get("sessions", 0) or 0)
 
     for row in checkout_rows:
         key = key_from_row(row)
         if key not in merged:
             date_value, source, medium, campaign = key
             merged[key] = empty_ga4_row(date_value, source, medium, campaign)
-        merged[key]["checkout_starts"] += int(row.get("eventCount", 0) or 0)
+        merged[key]["checkout_starts"] += int(row.get("sessions", 0) or 0)
 
     for row in purchase_rows:
         key = key_from_row(row)
         if key not in merged:
             date_value, source, medium, campaign = key
             merged[key] = empty_ga4_row(date_value, source, medium, campaign)
-        merged[key]["purchases"] += int(row.get("eventCount", 0) or 0)
+        merged[key]["purchases"] += int(row.get("sessions", 0) or 0)
         purchase_revenue = float(row.get("totalRevenue", 0) or 0)
         if purchase_revenue:
             merged[key]["revenue"] = purchase_revenue
@@ -387,19 +393,19 @@ def build_ga4(property_id: str, since: str, until: str) -> dict[str, Any]:
     for row in device_detail:
         key = device_key(row)
         if key in dev_merged:
-            dev_merged[key]["detail_views"] += int(row.get("eventCount", 0) or 0)
+            dev_merged[key]["detail_views"] += int(row.get("sessions", 0) or 0)
     for row in device_cart:
         key = device_key(row)
         if key in dev_merged:
-            dev_merged[key]["cart_adds"] += int(row.get("eventCount", 0) or 0)
+            dev_merged[key]["cart_adds"] += int(row.get("sessions", 0) or 0)
     for row in device_checkout:
         key = device_key(row)
         if key in dev_merged:
-            dev_merged[key]["checkout_starts"] += int(row.get("eventCount", 0) or 0)
+            dev_merged[key]["checkout_starts"] += int(row.get("sessions", 0) or 0)
     for row in device_purchase:
         key = device_key(row)
         if key in dev_merged:
-            dev_merged[key]["purchases"] += int(row.get("eventCount", 0) or 0)
+            dev_merged[key]["purchases"] += int(row.get("sessions", 0) or 0)
             pr = float(row.get("totalRevenue", 0) or 0)
             if pr:
                 dev_merged[key]["revenue"] = pr
@@ -431,7 +437,7 @@ def build_ga4(property_id: str, since: str, until: str) -> dict[str, Any]:
     for row in landing_purchase:
         key = landing_key(row)
         if key in land_merged:
-            land_merged[key]["purchases"] += int(row.get("eventCount", 0) or 0)
+            land_merged[key]["purchases"] += int(row.get("sessions", 0) or 0)
             pr = float(row.get("totalRevenue", 0) or 0)
             if pr:
                 land_merged[key]["revenue"] = pr
@@ -447,11 +453,12 @@ def build_ga4(property_id: str, since: str, until: str) -> dict[str, Any]:
         "has_checkout": has_checkout,
         "has_cart": has_cart,
         "funnel_definition": {
-            "traffic": "sessions",
-            "detail_view": "GA4 eventName=view_item",
-            "cart": "GA4 eventName=add_to_cart",
-            "checkout": "GA4 eventName=begin_checkout",
-            "purchase": "GA4 eventName=purchase",
+            "basis": "sessions (단일 세션 단위 집계)",
+            "traffic": "GA4 sessions",
+            "detail_view": "GA4 sessions where eventName=view_item",
+            "cart": "GA4 sessions where eventName=add_to_cart",
+            "checkout": "GA4 sessions where eventName=begin_checkout",
+            "purchase": "GA4 sessions where eventName=purchase",
         },
         "rows": rows,
         "device_rows": device_rows_out,
@@ -461,7 +468,26 @@ def build_ga4(property_id: str, since: str, until: str) -> dict[str, Any]:
 
 # ── Meta build ────────────────────────────────────────────────────────────────
 
-def meta_api_rows(cfg: dict[str, Any], since: str, until: str, level: str) -> list[dict[str, Any]]:
+def _date_chunks(since: str, until: str, days: int) -> list[tuple[str, str]]:
+    """Split [since, until] inclusive into windows of `days`."""
+    start = datetime.fromisoformat(since).date()
+    end   = datetime.fromisoformat(until).date()
+    out: list[tuple[str, str]] = []
+    cur = start
+    while cur <= end:
+        nxt = min(cur + timedelta(days=days - 1), end)
+        out.append((cur.isoformat(), nxt.isoformat()))
+        cur = nxt + timedelta(days=1)
+    return out
+
+
+def meta_api_rows(cfg: dict[str, Any], since: str, until: str, level: str,
+                  chunk_days: int = 30) -> list[dict[str, Any]]:
+    """
+    Meta /insights at campaign/adset/ad level. We chunk by `chunk_days` to stay
+    under Meta's "Please reduce the amount of data" limit on long windows
+    combined with `time_increment=1`.
+    """
     fields = [
         "date_start", "date_stop",
         "campaign_id", "campaign_name",
@@ -474,19 +500,27 @@ def meta_api_rows(cfg: dict[str, Any], since: str, until: str, level: str) -> li
         fields.extend(["ad_id", "ad_name"])
 
     url = f"https://graph.facebook.com/{cfg['api_version']}/{cfg['account_id']}/insights"
-    params = {
-        "fields": ",".join(fields),
-        "level": level,
-        "time_increment": 1,
-        "time_range": json.dumps({"since": since, "until": until}),
-        "limit": 5000,
-        "access_token": cfg["token"],
-        "action_report_time": "impression",
-    }
-    return paginate(url, params)
+    rows: list[dict[str, Any]] = []
+    for chunk_since, chunk_until in _date_chunks(since, until, chunk_days):
+        params = {
+            "fields": ",".join(fields),
+            "level": level,
+            "time_increment": 1,
+            "time_range": json.dumps({"since": chunk_since, "until": chunk_until}),
+            "limit": 5000,
+            "access_token": cfg["token"],
+            "action_report_time": "impression",
+        }
+        rows.extend(paginate(url, params))
+    return rows
 
 
-def meta_placement_rows(cfg: dict[str, Any], since: str, until: str) -> list[dict[str, Any]]:
+def meta_placement_rows(cfg: dict[str, Any], since: str, until: str,
+                        chunk_days: int = 14) -> list[dict[str, Any]]:
+    """
+    Placement breakdown is much heavier per day (publisher × position × ad).
+    Use a smaller window (14 days) to stay well under Meta's data limit.
+    """
     fields = [
         "date_start", "date_stop",
         "campaign_id", "campaign_name",
@@ -496,17 +530,20 @@ def meta_placement_rows(cfg: dict[str, Any], since: str, until: str) -> list[dic
         "actions", "action_values",
     ]
     url = f"https://graph.facebook.com/{cfg['api_version']}/{cfg['account_id']}/insights"
-    params = {
-        "fields": ",".join(fields),
-        "level": "ad",
-        "breakdowns": "publisher_platform,platform_position",
-        "time_increment": 1,
-        "time_range": json.dumps({"since": since, "until": until}),
-        "limit": 5000,
-        "access_token": cfg["token"],
-        "action_report_time": "impression",
-    }
-    return paginate(url, params)
+    rows: list[dict[str, Any]] = []
+    for chunk_since, chunk_until in _date_chunks(since, until, chunk_days):
+        params = {
+            "fields": ",".join(fields),
+            "level": "ad",
+            "breakdowns": "publisher_platform,platform_position",
+            "time_increment": 1,
+            "time_range": json.dumps({"since": chunk_since, "until": chunk_until}),
+            "limit": 5000,
+            "access_token": cfg["token"],
+            "action_report_time": "impression",
+        }
+        rows.extend(paginate(url, params))
+    return rows
 
 
 def parse_meta_metrics(row: dict[str, Any]) -> dict[str, Any]:

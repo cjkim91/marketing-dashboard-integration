@@ -333,13 +333,18 @@ function renderOverview() {
   const blendedCac = ga4Total.purchases ? metaTotal.spend / ga4Total.purchases : 0;
   const prevBlendedCac = prev.purchases ? prev.spend / prev.purchases : 0;
 
+  // Daily sparkline series (independent of state.granularity — always smooth)
+  const dailyGa4  = dailySeries(ga4Rows, ["revenue", "purchases", "sessions"]);
+  const dailyMeta = dailySeries(metaRows, ["spend"]);
+  const blendedSeries = blendedSparkSeries(ga4Rows, metaRows);
+
   renderKpis("overviewKpis", [
-    kpi("매출",    ga4Total.revenue,      "Total Revenue", prev.revenue, fmtMoney,  metricsSparkline(ga4Period, "revenue")),
-    kpi("광고비",  metaTotal.spend,        "Meta Spend",    prev.spend,    fmtMoney,  metricsSparkline(metaPeriod, "spend"), true),
-    kpi("블렌디드 ROAS", blendedRoas,     "Revenue/Spend", prevBlendedRoas, fmtDecimal, [], false, "violet"),
-    kpi("구매수",   ga4Total.purchases,   "Purchases",     prev.purchases, fmtInt,    metricsSparkline(ga4Period, "purchases"), false, "positive"),
-    kpi("블렌디드 CAC", blendedCac,       "Spend/Purchase", prevBlendedCac, fmtMoney, [], true, "warning"),
-    kpi("유입",     ga4Total.sessions,    "Sessions",      prev.sessions, fmtInt,    metricsSparkline(ga4Period, "sessions"), false, "primary"),
+    kpi("매출",    ga4Total.revenue,      "Total Revenue", prev.revenue, fmtMoney,   dailyGa4.revenue, false, "primary"),
+    kpi("광고비",  metaTotal.spend,        "Meta Spend",    prev.spend,    fmtMoney,  dailyMeta.spend,  true,  "warning"),
+    kpi("블렌디드 ROAS", blendedRoas,     "Revenue/Spend", prevBlendedRoas, fmtDecimal, blendedSeries.roas, false, "violet"),
+    kpi("구매수",   ga4Total.purchases,   "Purchases",     prev.purchases, fmtInt,    dailyGa4.purchases, false, "positive"),
+    kpi("블렌디드 CAC", blendedCac,       "Spend/Purchase", prevBlendedCac, fmtMoney, blendedSeries.cac,  true,  "warning"),
+    kpi("유입",     ga4Total.sessions,    "Sessions",      prev.sessions, fmtInt,    dailyGa4.sessions, false, "primary"),
   ]);
 
   // Trend chart (configurable)
@@ -589,20 +594,24 @@ function renderGa4() {
 
   const prev = previousGa4Totals();
 
+  // Daily sparkline series (smooth, independent of state.granularity)
+  const ds = dailySeries(rows, ["sessions", "detail_views", "cart_adds", "checkout_starts", "purchases", "revenue"]);
+
   // KPI band
   const kpis = [
-    kpi("유입", totals.sessions, "Sessions", prev.sessions, fmtInt, metricsSparkline(byPeriod, "sessions")),
-    kpi("상세조회", totals.detail_views, "view_item", prev.detail_views, fmtInt, metricsSparkline(byPeriod, "detail_views")),
+    kpi("유입", totals.sessions, "Sessions", prev.sessions, fmtInt, ds.sessions, false, "primary"),
+    kpi("상세조회", totals.detail_views, "view_item 세션", prev.detail_views, fmtInt, ds.detail_views, false, "primary"),
   ];
-  if (hasCart)     kpis.push(kpi("장바구니", totals.cart_adds, "add_to_cart", prev.cart_adds, fmtInt, metricsSparkline(byPeriod, "cart_adds")));
-  if (hasCheckout) kpis.push(kpi("결제시작", totals.checkout_starts, "begin_checkout", prev.checkout_starts, fmtInt, metricsSparkline(byPeriod, "checkout_starts")));
+  if (hasCart)     kpis.push(kpi("장바구니", totals.cart_adds, "add_to_cart 세션", prev.cart_adds, fmtInt, ds.cart_adds, false, "primary"));
+  if (hasCheckout) kpis.push(kpi("결제시작", totals.checkout_starts, "begin_checkout 세션", prev.checkout_starts, fmtInt, ds.checkout_starts, false, "primary"));
   kpis.push(
-    kpi("구매", totals.purchases, "purchase", prev.purchases, fmtInt, metricsSparkline(byPeriod, "purchases"), false, "positive"),
-    kpi("매출", totals.revenue, "Revenue", prev.revenue, fmtMoney, metricsSparkline(byPeriod, "revenue"), false, "primary"),
+    kpi("구매", totals.purchases, "purchase 세션", prev.purchases, fmtInt, ds.purchases, false, "positive"),
+    kpi("매출", totals.revenue, "Revenue", prev.revenue, fmtMoney, ds.revenue, false, "primary"),
   );
   // Pad to 6
   if (kpis.length < 6) {
-    kpis.push(kpi("이탈률", totals.bounce_rate, "Bounce", prev.bounce_rate, fmtPct, [], true, "warning"));
+    const dailyBounce = dailySeries(rows, ["bounce_rate"]);
+    kpis.push(kpi("이탈률", totals.bounce_rate, "Bounce", prev.bounce_rate, fmtPct, dailyBounce.bounce_rate, true, "warning"));
   }
   renderKpis("ga4Kpis", kpis.slice(0, 6));
 
@@ -779,14 +788,19 @@ function renderMeta() {
 
   const prev = previousMetaTotals();
 
+  // Daily series for sparklines (smooth, granularity-independent)
+  const ds = dailySeries(rows, ["spend", "impressions", "clicks", "conversions"]);
+  const cpaSpark = dailyDerived(rows, (d) => d.conversions ? d.spend / d.conversions : 0);
+  const roasSpark = dailyDerived(rows, (d) => d.spend ? d.conversion_value / d.spend : 0);
+
   // KPI band
   renderKpis("metaKpis", [
-    kpi("광고비",  totals.spend, "Spend", prev.spend, fmtMoney, metricsSparkline(byPeriod, "spend"), true, "warning"),
-    kpi("노출",    totals.impressions, "Impressions", prev.impressions, fmtInt, metricsSparkline(byPeriod, "impressions")),
-    kpi("클릭",    totals.clicks, "Clicks", prev.clicks, fmtInt, metricsSparkline(byPeriod, "clicks")),
-    kpi("전환",    totals.conversions, "Conversions", prev.conversions, fmtInt, metricsSparkline(byPeriod, "conversions"), false, "positive"),
-    kpi("CPA",     totals.cpa, "Cost / Conversion", prev.cpa, fmtMoney, [], true, "warning"),
-    kpi("ROAS",    totals.roas, "Value / Spend", prev.roas, fmtDecimal, [], false, "violet"),
+    kpi("광고비",  totals.spend, "Spend", prev.spend, fmtMoney, ds.spend, true, "warning"),
+    kpi("노출",    totals.impressions, "Impressions", prev.impressions, fmtInt, ds.impressions, false, "primary"),
+    kpi("클릭",    totals.clicks, "Clicks", prev.clicks, fmtInt, ds.clicks, false, "primary"),
+    kpi("전환",    totals.conversions, "Conversions", prev.conversions, fmtInt, ds.conversions, false, "positive"),
+    kpi("CPA",     totals.cpa, "Cost / Conversion", prev.cpa, fmtMoney, cpaSpark, true, "warning"),
+    kpi("ROAS",    totals.roas, "Value / Spend", prev.roas, fmtDecimal, roasSpark, false, "violet"),
   ]);
 
   // Trend
@@ -1145,6 +1159,66 @@ function sparklineSvg(values, colorKey = "primary") {
 
 function metricsSparkline(rows, key) {
   return rows.map((r) => Number(r[key] || 0));
+}
+
+// Aggregate by calendar date (independent of state.granularity) so sparklines
+// always render as smooth daily series rather than dramatic 3-point lines.
+function dailySeries(rows, metrics) {
+  const byDate = new Map();
+  rows.forEach((r) => {
+    if (!r.date) return;
+    const t = byDate.get(r.date) || {};
+    metrics.forEach((m) => { t[m] = (t[m] || 0) + Number(r[m] || 0); });
+    byDate.set(r.date, t);
+  });
+  const dates = Array.from(byDate.keys()).sort();
+  const out = {};
+  metrics.forEach((m) => { out[m] = dates.map((d) => byDate.get(d)[m] || 0); });
+  return out;
+}
+
+// Daily derived series (e.g. CPA, ROAS) — accepts a fn that takes a daily-sum
+// row and returns a derived number.
+function dailyDerived(rows, deriveFn) {
+  const byDate = new Map();
+  rows.forEach((r) => {
+    if (!r.date) return;
+    const t = byDate.get(r.date) || {};
+    Object.keys(r).forEach((k) => {
+      if (typeof r[k] === "number") t[k] = (t[k] || 0) + r[k];
+    });
+    byDate.set(r.date, t);
+  });
+  const dates = Array.from(byDate.keys()).sort();
+  return dates.map((d) => deriveFn(byDate.get(d) || {}) || 0);
+}
+
+// Daily blended ROAS / CAC arrays combining GA4 + Meta
+function blendedSparkSeries(ga4Rows, metaRows) {
+  const ga = new Map();
+  ga4Rows.forEach((r) => {
+    if (!r.date) return;
+    const t = ga.get(r.date) || { revenue: 0, purchases: 0 };
+    t.revenue += r.revenue || 0;
+    t.purchases += r.purchases || 0;
+    ga.set(r.date, t);
+  });
+  const me = new Map();
+  metaRows.forEach((r) => {
+    if (!r.date) return;
+    const t = me.get(r.date) || { spend: 0 };
+    t.spend += r.spend || 0;
+    me.set(r.date, t);
+  });
+  const dates = Array.from(new Set([...ga.keys(), ...me.keys()])).sort();
+  const roas = [], cac = [];
+  dates.forEach((d) => {
+    const g = ga.get(d) || { revenue: 0, purchases: 0 };
+    const m = me.get(d) || { spend: 0 };
+    roas.push(m.spend ? g.revenue / m.spend : 0);
+    cac.push(g.purchases ? m.spend / g.purchases : 0);
+  });
+  return { roas, cac };
 }
 
 // ── Funnel ───────────────────────────────────────────────────────────────────
