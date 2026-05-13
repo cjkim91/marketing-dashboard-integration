@@ -6184,71 +6184,6 @@
         "bounce_sessions": 0.0,
         "total_duration": 60.8,
         "purchase_rate": 0.0
-      },
-      {
-        "date": "2026-05-11",
-        "landing_page": "/checkout/290885/success",
-        "sessions": 1,
-        "users": 1,
-        "purchases": 1,
-        "revenue": 24999.999342,
-        "bounce_rate": 0.0,
-        "avg_session_duration": 1.1,
-        "bounce_sessions": 0.0,
-        "total_duration": 1.1,
-        "purchase_rate": 100.0
-      },
-      {
-        "date": "2026-05-11",
-        "landing_page": "/city/17/allpass",
-        "sessions": 1,
-        "users": 1,
-        "purchases": 0,
-        "revenue": 0.0,
-        "bounce_rate": 0.0,
-        "avg_session_duration": 58.1,
-        "bounce_sessions": 0.0,
-        "total_duration": 58.1,
-        "purchase_rate": 0.0
-      },
-      {
-        "date": "2026-05-11",
-        "landing_page": "/city/19/allpass",
-        "sessions": 1,
-        "users": 1,
-        "purchases": 0,
-        "revenue": 0.0,
-        "bounce_rate": 0.0,
-        "avg_session_duration": 12.4,
-        "bounce_sessions": 0.0,
-        "total_duration": 12.4,
-        "purchase_rate": 0.0
-      },
-      {
-        "date": "2026-05-11",
-        "landing_page": "/city/2",
-        "sessions": 1,
-        "users": 1,
-        "purchases": 0,
-        "revenue": 0.0,
-        "bounce_rate": 0.0,
-        "avg_session_duration": 4.9,
-        "bounce_sessions": 0.0,
-        "total_duration": 4.9,
-        "purchase_rate": 0.0
-      },
-      {
-        "date": "2026-05-11",
-        "landing_page": "/city/259",
-        "sessions": 1,
-        "users": 1,
-        "purchases": 0,
-        "revenue": 0.0,
-        "bounce_rate": 0.0,
-        "avg_session_duration": 4.8,
-        "bounce_sessions": 0.0,
-        "total_duration": 4.8,
-        "purchase_rate": 0.0
       }
     ]
   },
@@ -6457,6 +6392,28 @@
         "cpa": 0,
         "roas": 0.0,
         "cpm": 6038.12
+      },
+      {
+        "date": "2026-05-11",
+        "campaign_id": "6787068561584",
+        "campaign_name": "CONV_100원 가이드북_250529",
+        "adset_id": "6882658709384",
+        "adset_name": "어드밴티지 - TEST (유럽 전체)",
+        "ad_id": "6999633295384",
+        "ad_name": "유럽가이드북 0원_이미지",
+        "impressions": 0,
+        "reach": 0,
+        "clicks": 0,
+        "spend": 0.0,
+        "conversions": 0,
+        "conversion_value": 0.0,
+        "frequency": 0.0,
+        "ctr": 0,
+        "cvr": 0,
+        "cpc": 0,
+        "cpa": 0,
+        "roas": 0,
+        "cpm": 0
       },
       {
         "date": "2026-05-11",
@@ -7169,6 +7126,31 @@
         "cpa": 0,
         "roas": 0.0,
         "cpm": 2362.75
+      },
+      {
+        "date": "2026-05-11",
+        "campaign_id": "6787068561584",
+        "campaign_name": "CONV_100원 가이드북_250529",
+        "adset_id": "6882658709384",
+        "adset_name": "어드밴티지 - TEST (유럽 전체)",
+        "ad_id": "6999633295384",
+        "ad_name": "유럽가이드북 0원_이미지",
+        "publisher_platform": "facebook",
+        "platform_position": "feed",
+        "placement": "facebook / feed",
+        "impressions": 0,
+        "reach": 0,
+        "clicks": 0,
+        "spend": 0.0,
+        "conversions": 0,
+        "conversion_value": 0.0,
+        "frequency": 0.0,
+        "ctr": 0,
+        "cvr": 0,
+        "cpc": 0,
+        "cpa": 0,
+        "roas": 0,
+        "cpm": 0
       },
       {
         "date": "2026-05-11",
@@ -8047,5 +8029,5 @@
       }
     ]
   },
-  "fetched_at": "2026-05-13T05:34:43.957799+00:00"
+  "fetched_at": "2026-05-13T05:45:47.737794+00:00"
 }
