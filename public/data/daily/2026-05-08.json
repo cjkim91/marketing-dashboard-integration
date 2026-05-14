@@ -14,7 +14,7 @@
         "detail_views": 120,
         "checkout_starts": 11,
         "purchases": 6,
-        "revenue": 161000.00039899998,
+        "revenue": 161000.000399,
         "bounce_rate": 1.09,
         "avg_session_duration": 122.6,
         "engagement_rate": 98.91,
@@ -248,7 +248,7 @@
         "detail_views": 13,
         "checkout_starts": 5,
         "purchases": 3,
-        "revenue": 143000.00026399997,
+        "revenue": 143000.000264,
         "bounce_rate": 0.0,
         "avg_session_duration": 470.9,
         "engagement_rate": 100.0,
@@ -11051,6 +11051,31 @@
       },
       {
         "date": "2026-05-08",
+        "campaign_id": "6787068561584",
+        "campaign_name": "CONV_100원 가이드북_250529",
+        "adset_id": "6882658709384",
+        "adset_name": "어드밴티지 - TEST (유럽 전체)",
+        "ad_id": "6882658708584",
+        "ad_name": "\b유럽_가이드북_슬라이드 이미지",
+        "publisher_platform": "unknown",
+        "platform_position": "unknown",
+        "placement": "unknown / unknown",
+        "impressions": 0,
+        "reach": 0,
+        "clicks": 0,
+        "spend": 0.0,
+        "conversions": 0,
+        "conversion_value": 0.0,
+        "frequency": 0.0,
+        "ctr": 0,
+        "cvr": 0,
+        "cpc": 0,
+        "cpa": 0,
+        "roas": 0,
+        "cpm": 0
+      },
+      {
+        "date": "2026-05-08",
         "campaign_id": "6921538775784",
         "campaign_name": "CONV_셀프투어_251204",
         "adset_id": "6937910255384",
@@ -13076,5 +13101,5 @@
       }
     ]
   },
-  "fetched_at": "2026-05-13T11:38:41.807150+00:00"
+  "fetched_at": "2026-05-14T06:02:13.903662+00:00"
 }
