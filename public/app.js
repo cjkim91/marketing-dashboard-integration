@@ -39,6 +39,7 @@ const state = {
   // Overview controls
   trendMode: "absolute",     // "absolute" | "share" (유입/구매 차트에만 적용)
   trendGroup: "channel",     // "channel" | "source" | "source_medium" | "campaign"
+  trendHidden: new Set(),    // 범례에서 비활성화된 그룹 라벨
   heatmapMetric: "roas",     // "roas" | "revenue" | "cvr"
   heatmapCampaign: "",       // "" = 전체, else campaign_name
 };
@@ -170,6 +171,7 @@ function bindControls() {
   if (trendGroup) {
     trendGroup.addEventListener("change", (e) => {
       state.trendGroup = e.target.value;
+      state.trendHidden.clear(); // 그룹 종류가 바뀌면 hidden set 무의미
       renderOverview();
     });
   }
@@ -441,17 +443,37 @@ function renderOverviewTrends(ga4Rows) {
   const hasOthers = groupTotals.size > topGroups.length;
   const allGroups = hasOthers ? [...topGroups, "기타"] : topGroups;
 
+  // 색상은 그룹 이름 기준 고정 매핑 (가시 순서 바뀌어도 색 안 흔들림)
   const pal = palette();
   const colors = pal.channelArr;
-  const colorOf = (ch, i) => (ch === "기타" ? "#94A3B8" : colors[i % colors.length]);
+  const colorMap = new Map();
+  allGroups.forEach((ch, i) => {
+    colorMap.set(ch, ch === "기타" ? "#94A3B8" : colors[i % colors.length]);
+  });
+  const colorFor = (ch) => colorMap.get(ch) || "#94A3B8";
 
-  // 공통 범례 렌더링
+  // 토글 가능한 공통 범례
   const legendEl = document.getElementById("overviewTrendLegend");
   if (legendEl) {
-    legendEl.innerHTML = allGroups.map((ch, i) =>
-      `<span class="trend-legend-item"><span class="swatch" style="background:${colorOf(ch, i)}"></span>${esc(ch)}</span>`
-    ).join("");
+    legendEl.innerHTML = allGroups.map((ch) => {
+      const hidden = state.trendHidden.has(ch);
+      return `<button type="button" class="trend-legend-item${hidden ? " is-hidden" : ""}" data-trend-toggle="${esc(ch)}" title="클릭으로 표시/숨김">
+        <span class="swatch" style="background:${hidden ? "var(--muted-2)" : colorFor(ch)}"></span>${esc(ch)}
+      </button>`;
+    }).join("");
+    legendEl.querySelectorAll("[data-trend-toggle]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const k = btn.dataset.trendToggle;
+        if (state.trendHidden.has(k)) state.trendHidden.delete(k);
+        else state.trendHidden.add(k);
+        renderOverviewTrends(ga4Rows);
+      });
+    });
   }
+
+  // 활성 그룹 (hidden 제외) — 모두 hidden이면 빈 그래프 방지로 폴백
+  const visibleGroups = allGroups.filter((ch) => !state.trendHidden.has(ch));
+  const drawGroups = visibleGroups.length ? visibleGroups : allGroups;
 
   // 그룹×기간 집계 (한 번만 계산해서 3개 차트에 공유)
   const grouped = aggregateRows(enriched, ["period", "_group"], {
@@ -478,16 +500,16 @@ function renderOverviewTrends(ga4Rows) {
     return byKey.get(`${period}||${group}`) || { sessions: 0, purchases: 0 };
   };
 
-  renderChannelChart("chartOverviewTraffic",  periods, allGroups, colorOf, state.trendMode,
+  renderChannelChart("chartOverviewTraffic",  periods, drawGroups, colorFor, state.trendMode,
     (cell) => cell.sessions || 0, fmtInt, /*shareable*/ true);
-  renderChannelChart("chartOverviewPurchase", periods, allGroups, colorOf, state.trendMode,
+  renderChannelChart("chartOverviewPurchase", periods, drawGroups, colorFor, state.trendMode,
     (cell) => cell.purchases || 0, fmtInt, /*shareable*/ true);
   // 구매 전환율은 비중 모드 무시 (라인 유지)
-  renderChannelChart("chartOverviewCvr",      periods, allGroups, colorOf, "absolute",
+  renderChannelChart("chartOverviewCvr",      periods, drawGroups, colorFor, "absolute",
     (cell) => cell.sessions ? (cell.purchases || 0) / cell.sessions * 100 : 0,
     (v) => `${Number(v).toFixed(1)}%`, /*shareable*/ false);
 
-  function renderChannelChart(canvasId, periods, channels, colorOf, mode, valueFn, formatter, shareable) {
+  function renderChannelChart(canvasId, periods, channels, colorFor, mode, valueFn, formatter, shareable) {
     destroyChart(canvasId);
     const canvas = document.getElementById(canvasId);
     if (!canvas) return;
@@ -501,7 +523,7 @@ function renderOverviewTrends(ga4Rows) {
     }
 
     const datasets = channels.map((ch, i) => {
-      const color = colorOf(ch, i);
+      const color = colorFor(ch);
       return {
         label: ch,
         data: displayValues[i],
