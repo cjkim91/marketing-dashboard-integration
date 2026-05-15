@@ -136,4 +136,6 @@ python scripts/fetch_meta_data.py \
   > public/data/meta_campaigns.json
 ```
 
-The current script defaults to Graph API `v21.0` unless `META_API_VERSION` is set. Before production deployment, confirm whether the existing access token and account still support that version.
+The current script defaults to Graph API `v25.0` unless `META_API_VERSION` is set.
+Meta는 2026-06-09에 v24.0 미만 모든 버전을 deprecate한다. v25.0이 현 시점 최신 권장 버전.
+이전 코드는 `v21.0`을 사용했으나 deprecation 일자 전에 모두 갱신함.

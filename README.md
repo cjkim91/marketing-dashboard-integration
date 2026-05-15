@@ -155,7 +155,7 @@ GA4_PROPERTY_ID
 GOOGLE_APPLICATION_CREDENTIALS_JSON   # 서비스 계정 JSON 파일 내용 전체
 FACEBOOK_ACCESS_TOKEN
 AD_ACCOUNT_ID
-META_API_VERSION                      # 선택, 기본 v21.0
+META_API_VERSION                      # 선택, 기본 v25.0 (Meta가 2026-06-09에 v24 미만 deprecate)
 ```
 
 수동 재빌드는 GitHub Actions UI의 "Run workflow"로 `since`/`until`을 지정하면 된다.

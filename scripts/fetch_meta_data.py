@@ -64,7 +64,8 @@ def load_config() -> dict:
     return {
         "token": token,
         "account_id": account_id,
-        "api_version": os.environ.get("META_API_VERSION", "v21.0"),
+        # Meta는 v24.0 미만을 2026-06-09에 사용 중단한다. v25.0이 최신 권장.
+        "api_version": os.environ.get("META_API_VERSION", "v25.0"),
     }
 
 
