@@ -6277,7 +6277,7 @@
         "campaign_id": "6921538775784",
         "campaign_name": "CONV_셀프투어_251204",
         "impressions": 3855,
-        "reach": 3093,
+        "reach": 3095,
         "clicks": 96,
         "spend": 22991.0,
         "conversions": 2,
@@ -6337,7 +6337,7 @@
         "adset_id": "6937910255384",
         "adset_name": "260105_미술관",
         "impressions": 3855,
-        "reach": 3093,
+        "reach": 3095,
         "clicks": 96,
         "spend": 22991.0,
         "conversions": 2,
@@ -6423,7 +6423,7 @@
         "ad_id": "6967505324184",
         "ad_name": "미리보기_품질증명형_비너스탄생",
         "impressions": 3827,
-        "reach": 3088,
+        "reach": 3091,
         "clicks": 96,
         "spend": 22608.0,
         "conversions": 2,
@@ -6784,16 +6784,16 @@
         "impressions": 224,
         "reach": 0,
         "clicks": 52,
-        "spend": 3847.0,
+        "spend": 3845.0,
         "conversions": 0,
         "conversion_value": 0.0,
         "frequency": 0.0,
         "ctr": 23.2143,
         "cvr": 0.0,
-        "cpc": 73.98,
+        "cpc": 73.94,
         "cpa": 0,
         "roas": 0.0,
-        "cpm": 17174.11
+        "cpm": 17165.18
       },
       {
         "date": "2026-05-14",
@@ -6881,19 +6881,19 @@
         "publisher_platform": "facebook",
         "platform_position": "feed",
         "placement": "facebook / feed",
-        "impressions": 271,
+        "impressions": 272,
         "reach": 0,
         "clicks": 7,
-        "spend": 2417.0,
+        "spend": 2421.0,
         "conversions": 0,
         "conversion_value": 0.0,
         "frequency": 0.0,
-        "ctr": 2.583,
+        "ctr": 2.5735,
         "cvr": 0.0,
-        "cpc": 345.29,
+        "cpc": 345.86,
         "cpa": 0,
         "roas": 0.0,
-        "cpm": 8918.82
+        "cpm": 8900.74
       },
       {
         "date": "2026-05-14",
@@ -6934,16 +6934,16 @@
         "impressions": 872,
         "reach": 0,
         "clicks": 4,
-        "spend": 8152.0,
+        "spend": 8150.0,
         "conversions": 1,
         "conversion_value": 49000.0,
         "frequency": 0.0,
         "ctr": 0.4587,
         "cvr": 25.0,
-        "cpc": 2038.0,
-        "cpa": 8152.0,
-        "roas": 6.0108,
-        "cpm": 9348.62
+        "cpc": 2037.5,
+        "cpa": 8150.0,
+        "roas": 6.0123,
+        "cpm": 9346.33
       },
       {
         "date": "2026-05-14",
@@ -6956,7 +6956,7 @@
         "publisher_platform": "instagram",
         "platform_position": "instagram_explore_grid_home",
         "placement": "instagram / instagram_explore_grid_home",
-        "impressions": 1653,
+        "impressions": 1652,
         "reach": 0,
         "clicks": 1,
         "spend": 900.0,
@@ -6968,7 +6968,7 @@
         "cpc": 900.0,
         "cpa": 0,
         "roas": 0.0,
-        "cpm": 544.46
+        "cpm": 544.79
       },
       {
         "date": "2026-05-14",
@@ -7997,5 +7997,5 @@
       }
     ]
   },
-  "fetched_at": "2026-05-15T10:14:52.941157+00:00"
+  "fetched_at": "2026-05-15T10:29:47.592578+00:00"
 }
