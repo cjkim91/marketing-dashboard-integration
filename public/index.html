@@ -433,45 +433,89 @@
             </div>
           </section>
 
-          <!-- 광고 지표 추이 (단위·지표 셀렉터 + 토글 범례) -->
+          <!-- 광고 지표 추이 (필터 + 분해 + 최대 3개 지표) -->
           <article class="card">
-            <header class="card-head with-controls">
+            <header class="card-head">
               <div>
                 <h2>광고 지표 추이</h2>
-                <p class="card-sub">단위와 지표를 선택해 비교 — 범례 클릭으로 표시/숨김</p>
+                <p class="card-sub">필터·분해·지표를 조합해 비교 — 지표 최대 3개, 범례 클릭으로 표시/숨김</p>
               </div>
-              <div class="card-head-controls">
-                <select id="metaTrendLevel" class="select-input" aria-label="단위">
+            </header>
+            <div class="meta-filter-row">
+              <label class="filter-pair">
+                <span>캠페인</span>
+                <select id="metaTrendCampaign" class="select-input"><option value="">전체</option></select>
+              </label>
+              <label class="filter-pair">
+                <span>광고세트</span>
+                <select id="metaTrendAdset" class="select-input"><option value="">전체</option></select>
+              </label>
+              <label class="filter-pair">
+                <span>광고</span>
+                <select id="metaTrendAd" class="select-input"><option value="">전체</option></select>
+              </label>
+              <label class="filter-pair">
+                <span>분해</span>
+                <select id="metaTrendLevel" class="select-input">
                   <option value="campaigns">캠페인</option>
                   <option value="adsets">광고세트</option>
                   <option value="ads">광고</option>
                   <option value="placements">지면</option>
                 </select>
-                <select id="metaTrendMetric" class="select-input" aria-label="지표">
+              </label>
+            </div>
+            <div class="meta-metric-chips" role="group" aria-label="지표 (최대 3개)">
+              <button type="button" class="chip active" data-meta-metric="spend">광고비</button>
+              <button type="button" class="chip" data-meta-metric="impressions">노출</button>
+              <button type="button" class="chip" data-meta-metric="clicks">클릭</button>
+              <button type="button" class="chip" data-meta-metric="conversions">전환</button>
+              <button type="button" class="chip" data-meta-metric="conversion_value">매출</button>
+              <button type="button" class="chip" data-meta-metric="ctr">CTR</button>
+              <button type="button" class="chip" data-meta-metric="cpm">CPM</button>
+              <button type="button" class="chip" data-meta-metric="cpa">CPA</button>
+              <button type="button" class="chip" data-meta-metric="cpc">CPC</button>
+              <button type="button" class="chip" data-meta-metric="roas">ROAS</button>
+            </div>
+            <div id="metaTrendLegend" class="trend-legend"></div>
+            <div id="metaTrendGrid" class="meta-trend-grid"></div>
+          </article>
+
+          <!-- 지면 효율 (지표 셀렉터 + 필터 + 이전 기간 대비) -->
+          <article class="card">
+            <header class="card-head with-controls">
+              <div>
+                <h2>지면 효율</h2>
+                <p class="card-sub" id="placementSub">Publisher × Position</p>
+              </div>
+              <div class="card-head-controls">
+                <select id="placementMetric" class="select-input" aria-label="지표">
+                  <option value="roas">ROAS</option>
                   <option value="spend">광고비</option>
                   <option value="impressions">노출</option>
                   <option value="clicks">클릭</option>
+                  <option value="cpm">CPM</option>
+                  <option value="ctr">CTR</option>
                   <option value="conversions">전환</option>
                   <option value="conversion_value">매출</option>
-                  <option value="ctr">CTR</option>
-                  <option value="cpm">CPM</option>
                   <option value="cpa">CPA</option>
                   <option value="cpc">CPC</option>
-                  <option value="roas">ROAS</option>
                 </select>
               </div>
             </header>
-            <div id="metaTrendLegend" class="trend-legend"></div>
-            <div class="chart-tall"><canvas id="chartMetaTrend"></canvas></div>
-          </article>
-
-          <article class="card">
-            <header class="card-head">
-              <div>
-                <h2>지면 효율</h2>
-                <p class="card-sub">Publisher × Position · ROAS 기준</p>
-              </div>
-            </header>
+            <div class="meta-filter-row">
+              <label class="filter-pair">
+                <span>캠페인</span>
+                <select id="placementCampaign" class="select-input"><option value="">전체</option></select>
+              </label>
+              <label class="filter-pair">
+                <span>광고세트</span>
+                <select id="placementAdset" class="select-input"><option value="">전체</option></select>
+              </label>
+              <label class="filter-pair">
+                <span>광고</span>
+                <select id="placementAd" class="select-input"><option value="">전체</option></select>
+              </label>
+            </div>
             <div id="metaPlacementHeat" class="placement-heat"></div>
           </article>
 

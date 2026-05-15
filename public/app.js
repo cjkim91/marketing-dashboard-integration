@@ -43,9 +43,17 @@ const state = {
   heatmapMetric: "roas",     // "roas" | "revenue" | "cvr"
   heatmapCampaign: "",       // "" = 전체, else campaign_name
   // Meta trend controls
-  metaTrendLevel: "campaigns",  // "campaigns" | "adsets" | "ads" | "placements"
-  metaTrendMetric: "spend",     // "spend" | "impressions" | "clicks" | "conversions" | "conversion_value" | "ctr" | "cpm" | "cpa" | "cpc" | "roas"
+  metaTrendLevel: "campaigns",    // "campaigns" | "adsets" | "ads" | "placements"
+  metaTrendMetrics: ["spend"],    // 최대 3개
   metaTrendHidden: new Set(),
+  metaTrendCampaign: "",
+  metaTrendAdset: "",
+  metaTrendAd: "",
+  // Placement heatmap controls
+  placementMetric: "roas",
+  placementCampaign: "",
+  placementAdset: "",
+  placementAd: "",
 };
 
 // ── Theme palette resolver (re-evaluated per render) ─────────────────────────
@@ -180,20 +188,58 @@ function bindControls() {
     });
   }
 
-  const metaTrendLevel = document.getElementById("metaTrendLevel");
-  if (metaTrendLevel) {
-    metaTrendLevel.addEventListener("change", (e) => {
+  // Meta trend: 필터 + 분해 + 지표 chip
+  const metaTrendLevelEl = document.getElementById("metaTrendLevel");
+  if (metaTrendLevelEl) {
+    metaTrendLevelEl.addEventListener("change", (e) => {
       state.metaTrendLevel = e.target.value;
       state.metaTrendHidden.clear();
       renderMetaTrend();
     });
   }
-
-  const metaTrendMetric = document.getElementById("metaTrendMetric");
-  if (metaTrendMetric) {
-    metaTrendMetric.addEventListener("change", (e) => {
-      state.metaTrendMetric = e.target.value;
+  ["metaTrendCampaign", "metaTrendAdset", "metaTrendAd"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener("change", (e) => {
+      state[id] = e.target.value;
+      if (id === "metaTrendCampaign") { state.metaTrendAdset = ""; state.metaTrendAd = ""; }
+      else if (id === "metaTrendAdset") { state.metaTrendAd = ""; }
+      state.metaTrendHidden.clear();
       renderMetaTrend();
+    });
+  });
+  document.querySelectorAll("[data-meta-metric]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const m = btn.dataset.metaMetric;
+      const cur = state.metaTrendMetrics;
+      if (cur.includes(m)) {
+        if (cur.length > 1) state.metaTrendMetrics = cur.filter((x) => x !== m);
+      } else {
+        if (cur.length < 3) state.metaTrendMetrics = [...cur, m];
+      }
+      document.querySelectorAll("[data-meta-metric]").forEach((b) => {
+        b.classList.toggle("active", state.metaTrendMetrics.includes(b.dataset.metaMetric));
+      });
+      renderMetaTrend();
+    });
+  });
+
+  // Placement heatmap: 필터 + 지표
+  ["placementCampaign", "placementAdset", "placementAd"].forEach((id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener("change", (e) => {
+      state[id] = e.target.value;
+      if (id === "placementCampaign") { state.placementAdset = ""; state.placementAd = ""; }
+      else if (id === "placementAdset") { state.placementAd = ""; }
+      renderMetaPlacementHeat();
+    });
+  });
+  const placementMetricEl = document.getElementById("placementMetric");
+  if (placementMetricEl) {
+    placementMetricEl.addEventListener("change", (e) => {
+      state.placementMetric = e.target.value;
+      renderMetaPlacementHeat();
     });
   }
 
@@ -1214,14 +1260,72 @@ function metaEntityName(level, r) {
   return "(unknown)";
 }
 
-// ── 광고 지표 추이 (캠페인/광고세트/광고/지면 단위 + 지표 셀렉터 + 토글 범례)
-function renderMetaTrend() {
-  const level = state.metaTrendLevel;
-  const metric = state.metaTrendMetric;
-  const allRows = state.data.meta?.[level] || [];
-  const rows = filterByDate(allRows);
+// ── 지표 라벨/포맷터 ────────────────────────────────────────────────────────
+const META_METRIC_LABEL = {
+  spend: "광고비", impressions: "노출", clicks: "클릭",
+  conversions: "전환", conversion_value: "매출",
+  ctr: "CTR", cpm: "CPM", cpa: "CPA", cpc: "CPC", roas: "ROAS", cvr: "CVR",
+};
+function metaMetricFormatter(metric) {
+  if (["spend", "conversion_value", "cpm", "cpa", "cpc"].includes(metric)) return fmtMoney;
+  if (["ctr", "cvr"].includes(metric)) return (v) => `${Number(v || 0).toFixed(2)}%`;
+  if (metric === "roas") return fmtDecimal;
+  return fmtInt;
+}
 
-  const enriched = rows.map((r) => ({ ...r, _entity: metaEntityName(level, r) }));
+// ── select 옵션 채우기 헬퍼 ────────────────────────────────────────────────
+function populateMetaSelect(selectId, values, currentValue, fmtLabel) {
+  const sel = document.getElementById(selectId);
+  if (!sel) return;
+  const items = ["", ...values].map((v) => {
+    const label = v === "" ? "전체" : (fmtLabel ? fmtLabel(v) : v);
+    const sel2 = v === currentValue ? " selected" : "";
+    return `<option value="${esc(v)}"${sel2}>${esc(label)}</option>`;
+  });
+  sel.innerHTML = items.join("");
+}
+
+// 캠페인/세트/광고 의존 select 옵션 채우기 (계층 필터 인식)
+function populateMetaFilterTriple(prefix, sourceLevel) {
+  // prefix = "metaTrend" 또는 "placement"
+  const rows = state.data.meta?.[sourceLevel] || [];
+  const cf = state[`${prefix}Campaign`];
+  const af = state[`${prefix}Adset`];
+
+  const camps = Array.from(new Set(rows.map((r) => r.campaign_name).filter(Boolean))).sort();
+  populateMetaSelect(`${prefix}Campaign`, camps, cf);
+
+  const adsetSource = cf ? rows.filter((r) => r.campaign_name === cf) : rows;
+  const adsets = Array.from(new Set(adsetSource.map((r) => r.adset_name).filter(Boolean))).sort();
+  populateMetaSelect(`${prefix}Adset`, adsets, af);
+
+  const adSource = adsetSource.filter((r) => !af || r.adset_name === af);
+  const ads = Array.from(new Set(adSource.map((r) => r.ad_name).filter(Boolean))).sort();
+  populateMetaSelect(`${prefix}Ad`, ads, state[`${prefix}Ad`]);
+}
+
+// 캠페인/세트/광고 필터를 row 단위로 적용
+function applyMetaFilters(rows, campaign, adset, ad) {
+  return rows.filter((r) =>
+    (!campaign || r.campaign_name === campaign) &&
+    (!adset    || r.adset_name === adset) &&
+    (!ad       || r.ad_name === ad));
+}
+
+// ── 광고 지표 추이 (필터 + 분해 + 다중 지표) ────────────────────────────────
+function renderMetaTrend() {
+  // 필터 옵션 — 항상 placements 데이터를 기반으로 (모든 필드 있는 가장 풍부한 소스)
+  populateMetaFilterTriple("metaTrend", "placements");
+
+  const level = state.metaTrendLevel;
+  const metrics = state.metaTrendMetrics.length ? state.metaTrendMetrics : ["spend"];
+  const allRows = state.data.meta?.[level] || [];
+  const filtered = applyMetaFilters(
+    filterByDate(allRows),
+    state.metaTrendCampaign, state.metaTrendAdset, state.metaTrendAd,
+  );
+
+  const enriched = filtered.map((r) => ({ ...r, _entity: metaEntityName(level, r) }));
 
   // 상위 N (광고비 기준) + 기타
   const entityTotals = new Map();
@@ -1247,20 +1351,24 @@ function renderMetaTrend() {
   // 토글 범례
   const legendEl = document.getElementById("metaTrendLegend");
   if (legendEl) {
-    legendEl.innerHTML = allEntities.map((e) => {
-      const hidden = state.metaTrendHidden.has(e);
-      return `<button type="button" class="trend-legend-item${hidden ? " is-hidden" : ""}" data-meta-trend-toggle="${esc(e)}" title="클릭으로 표시/숨김">
-        <span class="swatch" style="background:${hidden ? "var(--muted-2)" : colorFor(e)}"></span>${esc(e)}
-      </button>`;
-    }).join("");
-    legendEl.querySelectorAll("[data-meta-trend-toggle]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const k = btn.dataset.metaTrendToggle;
-        if (state.metaTrendHidden.has(k)) state.metaTrendHidden.delete(k);
-        else state.metaTrendHidden.add(k);
-        renderMetaTrend();
+    if (!allEntities.length) {
+      legendEl.innerHTML = `<span style="color:var(--muted);font-size:11.5px">필터 조건에 데이터 없음</span>`;
+    } else {
+      legendEl.innerHTML = allEntities.map((e) => {
+        const hidden = state.metaTrendHidden.has(e);
+        return `<button type="button" class="trend-legend-item${hidden ? " is-hidden" : ""}" data-meta-trend-toggle="${esc(e)}" title="클릭으로 표시/숨김">
+          <span class="swatch" style="background:${hidden ? "var(--muted-2)" : colorFor(e)}"></span>${esc(e)}
+        </button>`;
+      }).join("");
+      legendEl.querySelectorAll("[data-meta-trend-toggle]").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const k = btn.dataset.metaTrendToggle;
+          if (state.metaTrendHidden.has(k)) state.metaTrendHidden.delete(k);
+          else state.metaTrendHidden.add(k);
+          renderMetaTrend();
+        });
       });
-    });
+    }
   }
 
   const visibleEntities = allEntities.filter((e) => !state.metaTrendHidden.has(e));
@@ -1298,123 +1406,169 @@ function renderMetaTrend() {
     return byKey.get(`${period}||${entity}`) || {};
   };
 
-  // 포맷터
-  const moneyMetrics = new Set(["spend", "conversion_value", "cpm", "cpa", "cpc"]);
-  const pctMetrics   = new Set(["ctr", "cvr"]);
-  const decMetrics   = new Set(["roas"]);
-  let formatter;
-  if (moneyMetrics.has(metric))      formatter = fmtMoney;
-  else if (pctMetrics.has(metric))   formatter = (v) => `${Number(v || 0).toFixed(2)}%`;
-  else if (decMetrics.has(metric))   formatter = fmtDecimal;
-  else                               formatter = fmtInt;
+  // 차트 grid 동적 생성
+  const grid = document.getElementById("metaTrendGrid");
+  if (!grid) return;
+  grid.innerHTML = metrics.map((m) => `
+    <div class="trend-3col-cell">
+      <div class="trend-3col-title">${esc(META_METRIC_LABEL[m] || m)}</div>
+      <div class="chart-mid"><canvas id="chartMetaTrend_${esc(m)}"></canvas></div>
+    </div>
+  `).join("");
+  grid.style.gridTemplateColumns = `repeat(${metrics.length}, minmax(0, 1fr))`;
 
-  const datasets = drawEntities.map((e) => {
-    const color = colorFor(e);
-    return {
-      label: e,
-      data: periods.map((p) => Number(cellOf(p, e)[metric] || 0)),
-      borderColor: color,
-      backgroundColor: color + "33",
-      fill: false,
-      tension: 0.32,
-      pointRadius: periods.length <= 14 ? 2 : 0,
-      pointHoverRadius: 4,
-      pointBackgroundColor: color,
-      borderWidth: 1.8,
-    };
-  });
-
-  destroyChart("chartMetaTrend");
-  const canvas = document.getElementById("chartMetaTrend");
-  if (!canvas) return;
-  state.charts.chartMetaTrend = new Chart(canvas, {
-    type: "line",
-    data: { labels: periods, datasets },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: { mode: "index", intersect: false },
-      plugins: {
-        legend: { display: false },
-        tooltip: { callbacks: { label: (ctx) => ` ${ctx.dataset.label}: ${formatter(ctx.raw)}` } },
-      },
-      scales: {
-        x: { grid: { display: false }, ticks: { maxTicksLimit: 8, maxRotation: 0 } },
-        y: {
-          beginAtZero: true,
-          grid: { color: palette().grid },
-          border: { display: false },
-          ticks: { maxTicksLimit: 5, callback: (v) => formatter(v) },
+  metrics.forEach((m) => {
+    const formatter = metaMetricFormatter(m);
+    const datasets = drawEntities.map((e) => {
+      const color = colorFor(e);
+      return {
+        label: e,
+        data: periods.map((p) => Number(cellOf(p, e)[m] || 0)),
+        borderColor: color,
+        backgroundColor: color + "33",
+        fill: false,
+        tension: 0.32,
+        pointRadius: periods.length <= 14 ? 2 : 0,
+        pointHoverRadius: 4,
+        pointBackgroundColor: color,
+        borderWidth: 1.8,
+      };
+    });
+    const canvasId = `chartMetaTrend_${m}`;
+    destroyChart(canvasId);
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+    state.charts[canvasId] = new Chart(canvas, {
+      type: "line",
+      data: { labels: periods, datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: (ctx) => ` ${ctx.dataset.label}: ${formatter(ctx.raw)}` } },
+        },
+        scales: {
+          x: { grid: { display: false }, ticks: { maxTicksLimit: 6, maxRotation: 0, font: { size: 10 } } },
+          y: {
+            beginAtZero: true,
+            grid: { color: palette().grid },
+            border: { display: false },
+            ticks: { maxTicksLimit: 4, font: { size: 10 }, callback: (v) => formatter(v) },
+          },
         },
       },
-    },
+    });
   });
 }
 
 function renderMetaPlacementHeat() {
-  const rows = filterByDate(state.data.meta?.placements || []);
-  if (!rows.length) {
+  // 필터 옵션 채우기
+  populateMetaFilterTriple("placement", "placements");
+
+  const metric = state.placementMetric || "roas";
+  const formatter = metaMetricFormatter(metric);
+  const metricLabel = META_METRIC_LABEL[metric] || metric;
+
+  const all = state.data.meta?.placements || [];
+  const curRows = applyMetaFilters(filterByDate(all),
+    state.placementCampaign, state.placementAdset, state.placementAd);
+  const [prvS, prvE] = prevPeriodWindow();
+  const prvRows = applyMetaFilters(filterByDateRange(all, prvS, prvE),
+    state.placementCampaign, state.placementAdset, state.placementAd);
+
+  // 부제 갱신
+  const subEl = document.getElementById("placementSub");
+  if (subEl) {
+    const fParts = [];
+    if (state.placementCampaign) fParts.push(`캠페인=${state.placementCampaign}`);
+    if (state.placementAdset)    fParts.push(`세트=${state.placementAdset}`);
+    if (state.placementAd)       fParts.push(`광고=${state.placementAd}`);
+    subEl.textContent = `Publisher × Position · ${metricLabel}${fParts.length ? " · " + fParts.join(", ") : ""} · 전기간 대비`;
+  }
+
+  if (!curRows.length) {
     document.getElementById("metaPlacementHeat").innerHTML =
-      `<div style="color:var(--muted);padding:18px;text-align:center">지면 데이터 없음</div>`;
+      `<div style="color:var(--muted);padding:18px;text-align:center">선택 조건에 지면 데이터 없음</div>`;
     return;
   }
 
-  // Aggregate by platform × position
-  const byPlatPos = new Map();
+  // platform × position 집계 (선택 기간 + 직전 기간)
+  function buildMap(rows) {
+    const m = new Map();
+    rows.forEach((r) => {
+      const key = `${r.publisher_platform}||${r.platform_position}`;
+      const t = m.get(key) || {
+        publisher_platform: r.publisher_platform, platform_position: r.platform_position,
+        impressions: 0, clicks: 0, spend: 0, conversions: 0, conversion_value: 0,
+      };
+      t.impressions      += r.impressions      || 0;
+      t.clicks           += r.clicks           || 0;
+      t.spend            += r.spend            || 0;
+      t.conversions      += r.conversions      || 0;
+      t.conversion_value += r.conversion_value || 0;
+      m.set(key, t);
+    });
+    m.forEach((v) => addMetaRates(v));
+    return m;
+  }
+  const curMap = buildMap(curRows);
+  const prvMap = buildMap(prvRows);
+
+  // 모든 platform / position 수집 (current 기준 — prv에만 있고 cur에 없는 건 표시 안 함)
   const platforms = new Set();
   const positions = new Set();
-  rows.forEach((r) => {
-    const key = `${r.publisher_platform}||${r.platform_position}`;
-    const t = byPlatPos.get(key) || {
-      publisher_platform: r.publisher_platform, platform_position: r.platform_position,
-      impressions: 0, clicks: 0, spend: 0, conversions: 0, conversion_value: 0,
-    };
-    t.impressions      += r.impressions      || 0;
-    t.clicks           += r.clicks           || 0;
-    t.spend            += r.spend            || 0;
-    t.conversions      += r.conversions      || 0;
-    t.conversion_value += r.conversion_value || 0;
-    byPlatPos.set(key, t);
-    platforms.add(r.publisher_platform);
-    positions.add(r.platform_position);
+  curMap.forEach((v) => {
+    platforms.add(v.publisher_platform);
+    positions.add(v.platform_position);
   });
-  byPlatPos.forEach((v) => addMetaRates(v));
-
   const platArr = Array.from(platforms).sort();
   const posArr  = Array.from(positions).sort();
 
-  // Build per-platform grid (only positions used by that platform)
-  const allRoas = Array.from(byPlatPos.values()).filter((v) => v.spend > 0 && v.roas > 0).map((v) => v.roas);
-  const maxR = allRoas.length ? Math.max(...allRoas) : 0;
-  const minR = allRoas.length ? Math.min(...allRoas) : 0;
+  // 값 범위 (선택 기간 기준)
+  const values = Array.from(curMap.values())
+    .map((v) => Number(v[metric] || 0))
+    .filter((v) => isFinite(v) && v !== 0);
+  const maxV = values.length ? Math.max(...values) : 1;
+  const minV = values.length ? Math.min(...values) : 0;
 
   const platformLabel = (p) => ({
-    facebook: "Facebook", instagram: "Instagram", audience_network: "AN", messenger: "Messenger"
+    facebook: "Facebook", instagram: "Instagram", audience_network: "AN",
+    messenger: "Messenger", threads: "Threads",
   }[p] || p);
-  const positionLabel = (p) => p.replace(/_/g, " ");
+  const positionLabel = (p) => (p || "").replace(/_/g, " ");
 
   let html = "";
   platArr.forEach((plat) => {
-    const positionsForPlat = posArr.filter((pos) => byPlatPos.has(`${plat}||${pos}`));
+    const positionsForPlat = posArr.filter((pos) => curMap.has(`${plat}||${pos}`));
     if (!positionsForPlat.length) return;
     const cols = positionsForPlat.length;
     html += `<div class="placement-row" style="grid-template-columns:100px repeat(${cols}, minmax(0,1fr));--cols:${cols}">`;
     html += `<div class="platform-label">${esc(platformLabel(plat))}</div>`;
     positionsForPlat.forEach((pos) => {
-      const v = byPlatPos.get(`${plat}||${pos}`);
-      if (!v || !v.spend) {
+      const v = curMap.get(`${plat}||${pos}`);
+      const p = prvMap.get(`${plat}||${pos}`);
+      const value = Number(v?.[metric] || 0);
+      if (!v || !value) {
         html += `<div class="placement-cell empty">
           <div class="pos-name">${esc(positionLabel(pos))}</div>
           <div><div class="pos-val">-</div></div>
         </div>`;
       } else {
-        const ratio = (maxR > minR) ? (v.roas - minR) / (maxR - minR) : 0.5;
-        const bg = heatColor(ratio, v.roas);
-        html += `<div class="placement-cell" style="background:${bg}" title="${esc(plat)} / ${esc(pos)}: ROAS ${v.roas.toFixed(2)}, 광고비 ${fmtMoney(v.spend)}">
+        const ratio = (maxV > minV) ? (value - minV) / (maxV - minV) : 0.5;
+        const bg = heatColor(ratio, value);
+        const prevVal = p ? Number(p[metric] || 0) : null;
+        const deltaHtml = (p && prevVal) ? inlineDelta(value, prevVal) : "";
+        const subText = `${fmtCompact(v.spend)} · ${fmtInt(v.conversions)}전환`;
+        const tip = `${plat} / ${pos}: ${metricLabel} ${formatter(value)}` +
+                    (prevVal ? ` (이전 ${formatter(prevVal)})` : "") +
+                    ` · 광고비 ${fmtMoney(v.spend)} · 전환 ${fmtInt(v.conversions)}`;
+        html += `<div class="placement-cell" style="background:${bg}" title="${esc(tip)}">
           <div class="pos-name">${esc(positionLabel(pos))}</div>
           <div>
-            <div class="pos-val">${v.roas.toFixed(2)}</div>
-            <div class="pos-spend">${fmtCompact(v.spend)} · ${fmtInt(v.conversions)}전환</div>
+            <div class="pos-val">${formatter(value)}${deltaHtml}</div>
+            <div class="pos-spend">${subText}</div>
           </div>
         </div>`;
       }
@@ -1422,7 +1576,7 @@ function renderMetaPlacementHeat() {
     html += `</div>`;
   });
 
-  html += `<div class="placement-legend"><span>낮음</span><span class="heat-scale"></span><span>높음 (ROAS)</span></div>`;
+  html += `<div class="placement-legend"><span>낮음</span><span class="heat-scale"></span><span>높음 (${esc(metricLabel)})</span></div>`;
   document.getElementById("metaPlacementHeat").innerHTML = html;
 }
 
