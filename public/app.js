@@ -37,8 +37,7 @@ const state = {
   ga4Search: "",
   metaSearch: "",
   // Overview controls
-  trafficMode: "absolute",   // "absolute" | "share"
-  purchaseMode: "absolute",  // "absolute" | "share"
+  trendMode: "absolute",     // "absolute" | "share" (유입/구매 차트에만 적용)
   heatmapMetric: "roas",     // "roas" | "revenue" | "cvr"
   heatmapCampaign: "",       // "" = 전체, else campaign_name
 };
@@ -142,18 +141,10 @@ function bindControls() {
     });
   });
 
-  document.querySelectorAll("[data-traffic-mode]").forEach((btn) => {
+  document.querySelectorAll("[data-trend-mode]").forEach((btn) => {
     btn.addEventListener("click", () => {
-      state.trafficMode = btn.dataset.trafficMode;
-      setActive("[data-traffic-mode]", btn);
-      renderOverview();
-    });
-  });
-
-  document.querySelectorAll("[data-purchase-mode]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      state.purchaseMode = btn.dataset.purchaseMode;
-      setActive("[data-purchase-mode]", btn);
+      state.trendMode = btn.dataset.trendMode;
+      setActive("[data-trend-mode]", btn);
       renderOverview();
     });
   });
@@ -181,15 +172,19 @@ function bindControls() {
     });
   });
 
-  document.getElementById("startDate").addEventListener("change", (e) => {
-    state.startDate = e.target.value;
-    clearPresetActive();
-    render();
-  });
-  document.getElementById("endDate").addEventListener("change", (e) => {
-    state.endDate = e.target.value;
-    clearPresetActive();
-    render();
+  ["input", "change"].forEach((evt) => {
+    document.getElementById("startDate").addEventListener(evt, (e) => {
+      if (!e.target.value) return;
+      state.startDate = e.target.value;
+      clearPresetActive();
+      render();
+    });
+    document.getElementById("endDate").addEventListener(evt, (e) => {
+      if (!e.target.value) return;
+      state.endDate = e.target.value;
+      clearPresetActive();
+      render();
+    });
   });
 
   document.getElementById("compareToggle").addEventListener("change", (e) => {
@@ -347,15 +342,16 @@ function renderOverview() {
   // ── KPI 1행: 퍼널 순서 ────────────────────────────────────────────────────
   const hasCart     = !!state.data.ga4?.has_cart;
   const hasCheckout = !!state.data.ga4?.has_checkout;
+  const unitTag = formatUnitTag(curS, curE);
   const funnelKpis = [
-    kpi("유입",     ga4Curr.sessions,      "Sessions",      ga4Prev.sessions,      fmtInt,   dailyGa4.sessions,      false, "primary"),
-    kpi("상세조회", ga4Curr.detail_views,  "view_item",     ga4Prev.detail_views,  fmtInt,   dailyGa4.detail_views,  false, "primary"),
+    kpi("유입",     ga4Curr.sessions,      `Sessions · ${unitTag}`,      ga4Prev.sessions,      fmtInt,   dailyGa4.sessions,      false, "primary"),
+    kpi("상세조회", ga4Curr.detail_views,  `view_item · ${unitTag}`,     ga4Prev.detail_views,  fmtInt,   dailyGa4.detail_views,  false, "primary"),
   ];
-  if (hasCart)     funnelKpis.push(kpi("장바구니", ga4Curr.cart_adds,       "add_to_cart",     ga4Prev.cart_adds,       fmtInt, dailyGa4.cart_adds,       false, "primary"));
-  if (hasCheckout) funnelKpis.push(kpi("결제시작", ga4Curr.checkout_starts, "begin_checkout",  ga4Prev.checkout_starts, fmtInt, dailyGa4.checkout_starts, false, "primary"));
+  if (hasCart)     funnelKpis.push(kpi("장바구니", ga4Curr.cart_adds,       `add_to_cart · ${unitTag}`,     ga4Prev.cart_adds,       fmtInt, dailyGa4.cart_adds,       false, "primary"));
+  if (hasCheckout) funnelKpis.push(kpi("결제시작", ga4Curr.checkout_starts, `begin_checkout · ${unitTag}`,  ga4Prev.checkout_starts, fmtInt, dailyGa4.checkout_starts, false, "primary"));
   funnelKpis.push(
-    kpi("구매",  ga4Curr.purchases, "Purchases", ga4Prev.purchases, fmtInt,   dailyGa4.purchases, false, "positive"),
-    kpi("매출",  ga4Curr.revenue,   "Revenue",   ga4Prev.revenue,   fmtMoney, dailyGa4.revenue,   false, "primary"),
+    kpi("구매",  ga4Curr.purchases, `Purchases · ${unitTag}`, ga4Prev.purchases, fmtInt,   dailyGa4.purchases, false, "positive"),
+    kpi("매출",  ga4Curr.revenue,   `Revenue · ${unitTag}`,   ga4Prev.revenue,   fmtMoney, dailyGa4.revenue,   false, "primary"),
   );
   renderKpis("overviewKpis", funnelKpis.slice(0, 6));
 
@@ -365,9 +361,9 @@ function renderOverview() {
   const blendedCacC  = ga4Curr.purchases ? metaCurr.spend / ga4Curr.purchases : 0;
   const blendedCacP  = ga4Prev.purchases ? metaPrev.spend / ga4Prev.purchases : 0;
   renderKpis("overviewEffKpis", [
-    kpi("광고비",         metaCurr.spend, "Meta Spend",     metaPrev.spend, fmtMoney,   dailyMeta.spend,    true,  "warning"),
-    kpi("블렌디드 ROAS",  blendedRoasC,   "Revenue/Spend",  blendedRoasP,   fmtDecimal, blendedSeries.roas, false, "violet"),
-    kpi("블렌디드 CAC",   blendedCacC,    "Spend/Purchase", blendedCacP,    fmtMoney,   blendedSeries.cac,  true,  "warning"),
+    kpi("광고비",         metaCurr.spend, `Meta Spend · ${unitTag}`,     metaPrev.spend, fmtMoney,   dailyMeta.spend,    true,  "warning"),
+    kpi("블렌디드 ROAS",  blendedRoasC,   `Revenue/Spend · ${unitTag}`,  blendedRoasP,   fmtDecimal, blendedSeries.roas, false, "violet"),
+    kpi("블렌디드 CAC",   blendedCacC,    `Spend/Purchase · ${unitTag}`, blendedCacP,    fmtMoney,   blendedSeries.cac,  true,  "warning"),
   ]);
 
   // ── 퍼널 (선택 기간 합산) ─────────────────────────────────────────────────
@@ -381,9 +377,8 @@ function renderOverview() {
   // Top campaigns
   renderTopCampaigns(metaRows);
 
-  // 유입 · 구매 시계열 (채널 분해)
-  renderOverviewTimeseries("chartOverviewTraffic", ga4Rows, "sessions", state.trafficMode, fmtInt);
-  renderOverviewTimeseries("chartOverviewPurchase", ga4Rows, "purchases", state.purchaseMode, fmtInt);
+  // 유입 · 구매 · 구매율 시계열 (채널 분해, 공통 범례·토글)
+  renderOverviewTrends(ga4Rows);
 
   // 채널 드릴다운 테이블
   renderOverviewChannelTable(ga4Rows);
@@ -393,150 +388,197 @@ function renderOverview() {
   renderHeatmap(ga4Rows, metaRows);
 }
 
-// ── 채널 분해 시계열 (유입 또는 구매) ───────────────────────────────────────
-function renderOverviewTimeseries(canvasId, ga4Rows, metricKey, mode, formatter) {
-  destroyChart(canvasId);
-  const canvas = document.getElementById(canvasId);
-  if (!canvas) return;
-
-  // Aggregate by [period, channel]
-  const grouped = aggregateRows(ga4Rows, ["period", "channel"], { [metricKey]: "sum" });
-  if (!grouped.length) return;
-
-  // Top channels by total of metric over the range
+// ── 채널 분해 시계열 (유입·구매·구매율 3개를 한 카드에) ─────────────────────
+function renderOverviewTrends(ga4Rows) {
+  // 공통 채널 셋 — 유입 기준 상위 6 + 기타
   const channelTotals = new Map();
-  grouped.forEach((r) => {
+  ga4Rows.forEach((r) => {
     const ch = r.channel || "(direct)";
-    channelTotals.set(ch, (channelTotals.get(ch) || 0) + (r[metricKey] || 0));
+    channelTotals.set(ch, (channelTotals.get(ch) || 0) + (r.sessions || 0));
   });
   const topChannels = Array.from(channelTotals.entries())
     .sort((a, b) => b[1] - a[1])
     .slice(0, 6)
     .map(([ch]) => ch);
-
-  // Build period axis
-  const periods = Array.from(new Set(grouped.map((r) => r.period))).sort();
-  const byKey = new Map(grouped.map((r) => [`${r.period}||${r.channel || "(direct)"}`, r[metricKey] || 0]));
-
-  // Aggregate "기타" (channels not in topChannels)
-  const includeOthers = channelTotals.size > topChannels.length;
-  const otherByPeriod = new Map(periods.map((p) => [p, 0]));
-  if (includeOthers) {
-    grouped.forEach((r) => {
-      const ch = r.channel || "(direct)";
-      if (!topChannels.includes(ch)) {
-        otherByPeriod.set(r.period, (otherByPeriod.get(r.period) || 0) + (r[metricKey] || 0));
-      }
-    });
-  }
+  const hasOthers = channelTotals.size > topChannels.length;
+  const allChannels = hasOthers ? [...topChannels, "기타"] : topChannels;
 
   const pal = palette();
   const colors = pal.channelArr;
-  const allChannels = includeOthers ? [...topChannels, "기타"] : topChannels;
+  const colorOf = (ch, i) => (ch === "기타" ? "#94A3B8" : colors[i % colors.length]);
 
-  // Raw values per channel
-  const valuesByChannel = allChannels.map((ch) => {
-    if (ch === "기타") return periods.map((p) => otherByPeriod.get(p) || 0);
-    return periods.map((p) => byKey.get(`${p}||${ch}`) || 0);
-  });
-
-  // For share mode: normalize to 100% per period
-  let displayValues;
-  if (mode === "share") {
-    const totals = periods.map((_, i) => valuesByChannel.reduce((s, vs) => s + vs[i], 0));
-    displayValues = valuesByChannel.map((vs) =>
-      vs.map((v, i) => totals[i] ? (v / totals[i]) * 100 : 0)
-    );
-  } else {
-    displayValues = valuesByChannel;
+  // 공통 범례 렌더링
+  const legendEl = document.getElementById("overviewTrendLegend");
+  if (legendEl) {
+    legendEl.innerHTML = allChannels.map((ch, i) =>
+      `<span class="trend-legend-item"><span class="swatch" style="background:${colorOf(ch, i)}"></span>${esc(ch)}</span>`
+    ).join("");
   }
 
-  const datasets = allChannels.map((ch, i) => {
-    const color = ch === "기타" ? "#94A3B8" : colors[i % colors.length];
-    const isShare = mode === "share";
-    return {
-      label: ch,
-      data: displayValues[i],
-      borderColor: color,
-      backgroundColor: isShare ? color + "CC" : color + "33",
-      fill: isShare ? (i === 0 ? "origin" : "-1") : false,
-      tension: 0.32,
-      pointRadius: periods.length <= 14 ? 2.5 : 0,
-      pointHoverRadius: 5,
-      pointBackgroundColor: color,
-      borderWidth: 2,
-    };
+  // 채널×기간 집계 (한 번만 계산해서 3개 차트에 공유)
+  const grouped = aggregateRows(ga4Rows, ["period", "channel"], {
+    sessions: "sum", purchases: "sum",
   });
+  const periods = Array.from(new Set(grouped.map((r) => r.period))).sort();
+  const byKey = new Map();
+  grouped.forEach((r) => {
+    byKey.set(`${r.period}||${r.channel || "(direct)"}`, r);
+  });
+  // 기타 합산
+  const otherByPeriod = new Map(periods.map((p) => [p, { sessions: 0, purchases: 0 }]));
+  if (hasOthers) {
+    grouped.forEach((r) => {
+      const ch = r.channel || "(direct)";
+      if (topChannels.includes(ch)) return;
+      const t = otherByPeriod.get(r.period);
+      t.sessions += r.sessions || 0;
+      t.purchases += r.purchases || 0;
+    });
+  }
 
-  state.charts[canvasId] = new Chart(canvas, {
-    type: "line",
-    data: { labels: periods, datasets },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      interaction: { mode: "index", intersect: false },
-      plugins: {
-        legend: {
-          display: true, position: "top", align: "end",
-          labels: { boxWidth: 8, boxHeight: 8, padding: 12, usePointStyle: true, font: { size: 11, weight: "600" } },
+  const cellOf = (period, channel) => {
+    if (channel === "기타") return otherByPeriod.get(period) || { sessions: 0, purchases: 0 };
+    return byKey.get(`${period}||${channel}`) || { sessions: 0, purchases: 0 };
+  };
+
+  renderChannelChart("chartOverviewTraffic",  periods, allChannels, colorOf, state.trendMode,
+    (cell) => cell.sessions || 0, fmtInt, /*shareable*/ true);
+  renderChannelChart("chartOverviewPurchase", periods, allChannels, colorOf, state.trendMode,
+    (cell) => cell.purchases || 0, fmtInt, /*shareable*/ true);
+  // 구매율은 비중 모드 무시 (라인 유지)
+  renderChannelChart("chartOverviewCvr",      periods, allChannels, colorOf, "absolute",
+    (cell) => cell.sessions ? (cell.purchases || 0) / cell.sessions * 100 : 0,
+    (v) => `${Number(v).toFixed(1)}%`, /*shareable*/ false);
+
+  function renderChannelChart(canvasId, periods, channels, colorOf, mode, valueFn, formatter, shareable) {
+    destroyChart(canvasId);
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+
+    const rawByChannel = channels.map((ch) => periods.map((p) => valueFn(cellOf(p, ch))));
+    const useShare = mode === "share" && shareable;
+    let displayValues = rawByChannel;
+    if (useShare) {
+      const totals = periods.map((_, i) => rawByChannel.reduce((s, vs) => s + vs[i], 0));
+      displayValues = rawByChannel.map((vs) => vs.map((v, i) => (totals[i] ? (v / totals[i]) * 100 : 0)));
+    }
+
+    const datasets = channels.map((ch, i) => {
+      const color = colorOf(ch, i);
+      return {
+        label: ch,
+        data: displayValues[i],
+        borderColor: color,
+        backgroundColor: useShare ? color + "CC" : color + "33",
+        fill: useShare ? (i === 0 ? "origin" : "-1") : false,
+        tension: 0.32,
+        pointRadius: periods.length <= 14 ? 2 : 0,
+        pointHoverRadius: 4,
+        pointBackgroundColor: color,
+        borderWidth: 1.8,
+      };
+    });
+
+    state.charts[canvasId] = new Chart(canvas, {
+      type: "line",
+      data: { labels: periods, datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: { display: false }, // 공통 범례 사용
+          tooltip: {
+            callbacks: {
+              label: (ctx) => ` ${ctx.dataset.label}: ${useShare ? fmtPct(ctx.raw) : formatter(ctx.raw)}`,
+            },
+          },
         },
-        tooltip: {
-          callbacks: {
-            label: (ctx) => ` ${ctx.dataset.label}: ${mode === "share" ? fmtPct(ctx.raw) : formatter(ctx.raw)}`,
+        scales: {
+          x: { grid: { display: false }, ticks: { maxTicksLimit: 6, maxRotation: 0, font: { size: 10 } } },
+          y: {
+            stacked: useShare,
+            beginAtZero: true,
+            max: useShare ? 100 : undefined,
+            grid: { color: palette().grid },
+            border: { display: false },
+            ticks: { maxTicksLimit: 4, font: { size: 10 }, callback: (v) => useShare ? fmtPct(v) : formatter(v) },
           },
         },
       },
-      scales: {
-        x: { grid: { display: false }, ticks: { maxTicksLimit: 10, maxRotation: 0 } },
-        y: {
-          stacked: mode === "share",
-          beginAtZero: true,
-          max: mode === "share" ? 100 : undefined,
-          grid: { color: palette().grid },
-          border: { display: false },
-          ticks: {
-            maxTicksLimit: 5,
-            callback: (v) => mode === "share" ? fmtPct(v) : formatter(v),
-          },
-        },
-      },
-    },
-  });
+    });
+  }
 }
 
-// ── 채널 드릴다운 테이블 ────────────────────────────────────────────────────
-function renderOverviewChannelTable(ga4Rows) {
-  const byChan = aggregateRows(ga4Rows, ["channel"], {
+// ── 채널 드릴다운 테이블 (단위 1개 + 단위 대비 델타 + 총합) ─────────────────
+function renderOverviewChannelTable(_unused) {
+  const [curS, curE] = currentUnitWindow();
+  const [prvS, prvE] = previousUnitWindow();
+  const allRows = state.data.ga4?.rows || [];
+  const curRows = filterByDateRange(allRows, curS, curE);
+  const prvRows = filterByDateRange(allRows, prvS, prvE);
+
+  const curAgg = aggregateRows(curRows, ["channel"], {
     sessions: "sum", purchases: "sum", revenue: "sum",
   }).sort((a, b) => b.revenue - a.revenue);
 
-  if (!byChan.length) {
+  const prvAgg = aggregateRows(prvRows, ["channel"], {
+    sessions: "sum", purchases: "sum", revenue: "sum",
+  });
+  const prvMap = new Map(prvAgg.map((r) => [r.channel || "(direct)", r]));
+
+  if (!curAgg.length) {
     document.getElementById("overviewChannelTable").innerHTML =
-      `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:18px">데이터 없음</td></tr>`;
+      `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:18px">선택 단위에 데이터 없음</td></tr>`;
     return;
   }
 
-  const totalSess = byChan.reduce((s, r) => s + r.sessions, 0) || 1;
-  const totalRev  = byChan.reduce((s, r) => s + r.revenue, 0)  || 1;
+  const totalSess = curAgg.reduce((s, r) => s + r.sessions, 0) || 1;
+  const totalRev  = curAgg.reduce((s, r) => s + r.revenue, 0)  || 1;
+  const totalPurch = curAgg.reduce((s, r) => s + r.purchases, 0);
+  const totalPRate = totalSess ? (totalPurch / totalSess) * 100 : 0;
+  const totalAOV   = totalPurch ? totalRev / totalPurch : 0;
+  const prvTotal = sumFields(prvAgg, ["sessions", "purchases", "revenue"]);
+  const prvPRate = prvTotal.sessions ? (prvTotal.purchases / prvTotal.sessions) * 100 : 0;
+  const prvAOV   = prvTotal.purchases ? prvTotal.revenue / prvTotal.purchases : 0;
 
-  document.getElementById("overviewChannelTable").innerHTML = byChan.map((r) => {
+  const totalRow = `
+    <tr class="total-row">
+      <td class="name-cell strong">총합 (전체 채널)</td>
+      <td class="num">${fmtInt(totalSess)}${inlineDelta(totalSess, prvTotal.sessions)}</td>
+      <td class="num">100.0%</td>
+      <td class="num">${fmtInt(totalPurch)}${inlineDelta(totalPurch, prvTotal.purchases)}</td>
+      <td class="num">${fmtPct(totalPRate)}${inlineDelta(totalPRate, prvPRate, true)}</td>
+      <td class="num">${fmtMoney(totalRev)}${inlineDelta(totalRev, prvTotal.revenue)}</td>
+      <td class="num">100.0%</td>
+      <td class="num">${fmtMoney(totalAOV)}${inlineDelta(totalAOV, prvAOV)}</td>
+    </tr>
+  `;
+
+  const rowsHtml = curAgg.map((r) => {
+    const ch = r.channel || "(direct)";
+    const p = prvMap.get(ch);
     const sessShare = (r.sessions / totalSess) * 100;
     const revShare  = (r.revenue  / totalRev)  * 100;
     const pRate = r.sessions ? (r.purchases / r.sessions) * 100 : 0;
     const aov   = r.purchases ? r.revenue / r.purchases : 0;
+    const pPRate = p && p.sessions ? (p.purchases / p.sessions) * 100 : 0;
+    const pAOV   = p && p.purchases ? p.revenue / p.purchases : 0;
     return `
       <tr>
-        <td class="name-cell strong">${esc(r.channel || "(direct)")}</td>
-        <td class="num">${fmtInt(r.sessions)}</td>
+        <td class="name-cell strong">${esc(ch)}</td>
+        <td class="num">${fmtInt(r.sessions)}${p ? inlineDelta(r.sessions, p.sessions) : ""}</td>
         <td class="num">${sessShare.toFixed(1)}%</td>
-        <td class="num">${fmtInt(r.purchases)}</td>
-        <td class="num">${fmtPct(pRate)}</td>
-        <td class="num">${fmtMoney(r.revenue)}</td>
+        <td class="num">${fmtInt(r.purchases)}${p ? inlineDelta(r.purchases, p.purchases) : ""}</td>
+        <td class="num">${fmtPct(pRate)}${p ? inlineDelta(pRate, pPRate, true) : ""}</td>
+        <td class="num">${fmtMoney(r.revenue)}${p ? inlineDelta(r.revenue, p.revenue) : ""}</td>
         <td class="num">${revShare.toFixed(1)}%</td>
-        <td class="num">${fmtMoney(aov)}</td>
+        <td class="num">${fmtMoney(aov)}${p ? inlineDelta(aov, pAOV) : ""}</td>
       </tr>
     `;
   }).join("");
+
+  document.getElementById("overviewChannelTable").innerHTML = totalRow + rowsHtml;
 }
 
 // ── 히트맵 캠페인 셀렉터 옵션 채우기 ────────────────────────────────────────
@@ -560,29 +602,67 @@ function populateHeatmapCampaignSelect(allMetaRows) {
   sel.innerHTML = opts.join("");
 }
 
-function renderTopCampaigns(metaRows) {
-  const grouped = aggregateRows(metaRows, ["campaign_name"], {
-    spend: "sum", conversions: "sum", conversion_value: "sum",
-    impressions: "sum", clicks: "sum",
-  });
-  grouped.forEach(addMetaRates);
-  grouped.sort((a, b) => b.spend - a.spend);
-  const top = grouped.slice(0, 6);
-  const acctRoas = grouped.reduce((s, r) => s + r.conversion_value, 0) /
-                   (grouped.reduce((s, r) => s + r.spend, 0) || 1);
+function renderTopCampaigns(_unused) {
+  // 단위(일/주/월) 1개 데이터 — 상단 KPI와 동일한 윈도우
+  const [curS, curE] = currentUnitWindow();
+  const [prvS, prvE] = previousUnitWindow();
+  const allCamps = state.data.meta?.campaigns || [];
+  const curRows = filterByDateRange(allCamps, curS, curE);
+  const prvRows = filterByDateRange(allCamps, prvS, prvE);
 
-  document.getElementById("overviewTopCampaigns").innerHTML = top.map((r) => {
-    const cls = roasClass(r.roas, acctRoas);
+  const curAgg = aggregateRows(curRows, ["campaign_name"], {
+    impressions: "sum", clicks: "sum", spend: "sum",
+    conversions: "sum", conversion_value: "sum",
+  });
+  curAgg.forEach(addMetaRates);
+  curAgg.sort((a, b) => b.spend - a.spend);
+  const top = curAgg.slice(0, 6);
+
+  const prvAgg = aggregateRows(prvRows, ["campaign_name"], {
+    impressions: "sum", clicks: "sum", spend: "sum",
+    conversions: "sum", conversion_value: "sum",
+  });
+  prvAgg.forEach(addMetaRates);
+  const prvMap = new Map(prvAgg.map((r) => [r.campaign_name, r]));
+
+  // 총합 (전체 캠페인, 표시되지 않은 것 포함)
+  const curTotal = sumFields(curAgg, ["impressions", "clicks", "spend", "conversions", "conversion_value"]);
+  addMetaRates(curTotal);
+  const prvTotal = sumFields(prvAgg, ["impressions", "clicks", "spend", "conversions", "conversion_value"]);
+  addMetaRates(prvTotal);
+
+  const totalRow = `
+    <tr class="total-row">
+      <td class="name-cell strong">총합 (전체 캠페인)</td>
+      <td class="num">${fmtInt(curTotal.impressions)}${inlineDelta(curTotal.impressions, prvTotal.impressions)}</td>
+      <td class="num">${fmtInt(curTotal.clicks)}${inlineDelta(curTotal.clicks, prvTotal.clicks)}</td>
+      <td class="num">${fmtPct(curTotal.ctr)}${inlineDelta(curTotal.ctr, prvTotal.ctr, true)}</td>
+      <td class="num">${fmtMoney(curTotal.spend)}${inlineDelta(curTotal.spend, prvTotal.spend)}</td>
+      <td class="num">${fmtInt(curTotal.conversions)}${inlineDelta(curTotal.conversions, prvTotal.conversions)}</td>
+      <td class="num">${fmtMoney(curTotal.conversion_value)}${inlineDelta(curTotal.conversion_value, prvTotal.conversion_value)}</td>
+      <td class="num">${fmtDecimal(curTotal.roas)}${inlineDelta(curTotal.roas, prvTotal.roas, true)}</td>
+    </tr>
+  `;
+
+  const rowsHtml = top.map((r) => {
+    const p = prvMap.get(r.campaign_name);
+    const cls = roasClass(r.roas, curTotal.roas);
     return `
       <tr>
         <td class="name-cell strong" title="${esc(r.campaign_name)}">${esc(r.campaign_name)}</td>
-        <td class="num">${fmtMoney(r.spend)}</td>
-        <td class="num">${fmtInt(r.conversions)}</td>
-        <td class="num">${fmtMoney(r.conversion_value)}</td>
-        <td class="num ${cls}">${fmtDecimal(r.roas)}</td>
+        <td class="num">${fmtInt(r.impressions)}${p ? inlineDelta(r.impressions, p.impressions) : ""}</td>
+        <td class="num">${fmtInt(r.clicks)}${p ? inlineDelta(r.clicks, p.clicks) : ""}</td>
+        <td class="num">${fmtPct(r.ctr)}${p ? inlineDelta(r.ctr, p.ctr, true) : ""}</td>
+        <td class="num">${fmtMoney(r.spend)}${p ? inlineDelta(r.spend, p.spend) : ""}</td>
+        <td class="num">${fmtInt(r.conversions)}${p ? inlineDelta(r.conversions, p.conversions) : ""}</td>
+        <td class="num">${fmtMoney(r.conversion_value)}${p ? inlineDelta(r.conversion_value, p.conversion_value) : ""}</td>
+        <td class="num ${cls}">${fmtDecimal(r.roas)}${p ? inlineDelta(r.roas, p.roas, true) : ""}</td>
       </tr>
     `;
-  }).join("") || `<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:18px">데이터 없음</td></tr>`;
+  }).join("");
+
+  document.getElementById("overviewTopCampaigns").innerHTML =
+    (top.length ? totalRow + rowsHtml : `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:18px">선택 단위에 데이터 없음</td></tr>`);
 }
 
 function renderHeatmap(ga4Rows, metaRows) {
@@ -1652,6 +1732,23 @@ function unitLabel() {
 }
 function unitDeltaLabel() {
   return { day: "전일 대비", week: "전주 대비", month: "전월 대비" }[state.granularity] || "전기간 대비";
+}
+// KPI helper에 들어가는 짧은 단위 표기 ("5/14", "5/11–5/14", "5월 1–14일")
+function formatUnitTag(since, until) {
+  if (!since || !until) return "";
+  if (state.granularity === "day") {
+    const d = parseLocalDate(since);
+    return `${d.getMonth() + 1}/${d.getDate()}`;
+  }
+  if (state.granularity === "month") {
+    const s = parseLocalDate(since);
+    const e = parseLocalDate(until);
+    return `${s.getMonth() + 1}월 ${s.getDate()}–${e.getDate()}일`;
+  }
+  // week
+  const s = parseLocalDate(since);
+  const e = parseLocalDate(until);
+  return `${s.getMonth() + 1}/${s.getDate()}–${e.getMonth() + 1}/${e.getDate()}`;
 }
 
 function previousGa4Totals() {

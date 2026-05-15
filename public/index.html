@@ -134,7 +134,7 @@
               <header class="card-head">
                 <div>
                   <h2>상위 캠페인</h2>
-                  <p class="card-sub">광고비 기준 · ROAS 색상 표기</p>
+                  <p class="card-sub">광고비 기준 · 단위 1개 + 단위 대비 변화</p>
                 </div>
                 <a class="link-btn" data-jump="meta">전체 보기 →</a>
               </header>
@@ -143,6 +143,9 @@
                   <thead>
                     <tr>
                       <th>캠페인</th>
+                      <th class="num">노출</th>
+                      <th class="num">클릭</th>
+                      <th class="num">CTR</th>
                       <th class="num">광고비</th>
                       <th class="num">전환</th>
                       <th class="num">매출</th>
@@ -155,38 +158,35 @@
             </article>
           </section>
 
-          <!-- 유입 추이 (채널 분해, 라인/비중 토글) -->
+          <!-- 유입·구매·구매율 추이 (3 차트 가로, 공통 범례·토글) -->
           <article class="card">
             <header class="card-head with-controls">
               <div>
-                <h2>유입 추이</h2>
-                <p class="card-sub">채널별 세션 — 절대값 또는 100% 비중</p>
+                <h2>유입 · 구매 · 구매율 추이</h2>
+                <p class="card-sub">채널별 — 절대값 또는 100% 비중 (구매율은 라인 유지)</p>
               </div>
               <div class="card-head-controls">
-                <div class="segmented compact" role="group" aria-label="유입 표시 모드">
-                  <button class="active" data-traffic-mode="absolute">절대값</button>
-                  <button data-traffic-mode="share">비중</button>
+                <div class="segmented compact" role="group" aria-label="표시 모드">
+                  <button class="active" data-trend-mode="absolute">절대값</button>
+                  <button data-trend-mode="share">비중</button>
                 </div>
               </div>
             </header>
-            <div class="chart-tall"><canvas id="chartOverviewTraffic"></canvas></div>
-          </article>
-
-          <!-- 구매 추이 (채널 분해, 라인/비중 토글) -->
-          <article class="card">
-            <header class="card-head with-controls">
-              <div>
-                <h2>구매 추이</h2>
-                <p class="card-sub">채널별 구매 수 — 절대값 또는 100% 비중</p>
+            <div id="overviewTrendLegend" class="trend-legend"></div>
+            <div class="trend-3col">
+              <div class="trend-3col-cell">
+                <div class="trend-3col-title">유입 (세션)</div>
+                <div class="chart-mid"><canvas id="chartOverviewTraffic"></canvas></div>
               </div>
-              <div class="card-head-controls">
-                <div class="segmented compact" role="group" aria-label="구매 표시 모드">
-                  <button class="active" data-purchase-mode="absolute">절대값</button>
-                  <button data-purchase-mode="share">비중</button>
-                </div>
+              <div class="trend-3col-cell">
+                <div class="trend-3col-title">구매</div>
+                <div class="chart-mid"><canvas id="chartOverviewPurchase"></canvas></div>
               </div>
-            </header>
-            <div class="chart-tall"><canvas id="chartOverviewPurchase"></canvas></div>
+              <div class="trend-3col-cell">
+                <div class="trend-3col-title">구매율</div>
+                <div class="chart-mid"><canvas id="chartOverviewCvr"></canvas></div>
+              </div>
+            </div>
           </article>
 
           <!-- 채널 드릴다운 테이블 -->
@@ -194,7 +194,7 @@
             <header class="card-head">
               <div>
                 <h2>채널별 성과</h2>
-                <p class="card-sub">선택 기간 합산</p>
+                <p class="card-sub">단위 1개 + 단위 대비 변화</p>
               </div>
             </header>
             <div class="table-scroll">

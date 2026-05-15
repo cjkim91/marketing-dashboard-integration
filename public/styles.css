@@ -891,6 +891,59 @@ th.sortable.sort-desc::after { content: "↓"; opacity: 1; color: var(--primary)
 [data-theme="dark"] .heat-cell .hc-val { color: #fff; }
 [data-theme="dark"] .heat-cell .hc-sub { color: rgba(255,255,255,0.78); }
 
+/* Trend 3-column shared layout */
+.trend-3col {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+@media (max-width: 900px) { .trend-3col { grid-template-columns: 1fr; } }
+.trend-3col-cell { min-width: 0; }
+.trend-3col-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-2);
+  margin-bottom: 6px;
+  letter-spacing: -0.005em;
+}
+.chart-mid {
+  height: 220px;
+  position: relative;
+}
+.trend-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin-bottom: 12px;
+  font-size: 11.5px;
+  color: var(--ink-2);
+}
+.trend-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+}
+.trend-legend-item .swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+/* Total row in tables */
+.data-table tr.total-row {
+  background: var(--surface-2);
+  font-weight: 600;
+}
+.data-table tr.total-row td {
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border-strong);
+  color: var(--ink);
+}
+.data-table tr.total-row .name-cell { color: var(--ink); }
+
 /* Select input (heatmap campaign filter, etc.) */
 .select-input {
   padding: 6px 28px 6px 10px;
