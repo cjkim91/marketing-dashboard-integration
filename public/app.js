@@ -26,7 +26,6 @@ const state = {
   granularity: "day",
   metaLevel: "campaigns",
   compare: true,
-  overviewTrend: "revenue_spend",
   startDate: "",
   endDate: "",
   charts: {},
@@ -37,6 +36,11 @@ const state = {
   },
   ga4Search: "",
   metaSearch: "",
+  // Overview controls
+  trafficMode: "absolute",   // "absolute" | "share"
+  purchaseMode: "absolute",  // "absolute" | "share"
+  heatmapMetric: "roas",     // "roas" | "revenue" | "cvr"
+  heatmapCampaign: "",       // "" = 전체, else campaign_name
 };
 
 // ── Theme palette resolver (re-evaluated per render) ─────────────────────────
@@ -138,13 +142,37 @@ function bindControls() {
     });
   });
 
-  document.querySelectorAll("[data-overview-trend]").forEach((btn) => {
+  document.querySelectorAll("[data-traffic-mode]").forEach((btn) => {
     btn.addEventListener("click", () => {
-      state.overviewTrend = btn.dataset.overviewTrend;
-      setActive("[data-overview-trend]", btn);
+      state.trafficMode = btn.dataset.trafficMode;
+      setActive("[data-traffic-mode]", btn);
       renderOverview();
     });
   });
+
+  document.querySelectorAll("[data-purchase-mode]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      state.purchaseMode = btn.dataset.purchaseMode;
+      setActive("[data-purchase-mode]", btn);
+      renderOverview();
+    });
+  });
+
+  document.querySelectorAll("[data-heatmap-metric]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      state.heatmapMetric = btn.dataset.heatmapMetric;
+      setActive("[data-heatmap-metric]", btn);
+      renderOverview();
+    });
+  });
+
+  const heatmapCampaign = document.getElementById("heatmapCampaign");
+  if (heatmapCampaign) {
+    heatmapCampaign.addEventListener("change", (e) => {
+      state.heatmapCampaign = e.target.value;
+      renderOverview();
+    });
+  }
 
   document.querySelectorAll("[data-preset]").forEach((btn) => {
     btn.addEventListener("click", () => {
@@ -297,164 +325,239 @@ function renderOverview() {
   const ga4Rows  = filterByDate(state.data.ga4?.rows || []);
   const metaRows = filterByDate(state.data.meta?.campaigns || []);
 
-  // Aggregate by period
-  const ga4Period = aggregateRows(ga4Rows, ["period"], {
-    sessions: "sum", users: "sum", new_users: "sum",
-    detail_views: "sum", cart_adds: "sum", checkout_starts: "sum",
-    purchases: "sum", revenue: "sum",
-    bounce_sessions: "sum", total_duration: "sum",
-  }).sort(sortPeriodAsc);
-  ga4Period.forEach(recomputeGa4Derived);
-
-  const metaPeriod = aggregateRows(metaRows, ["period"], {
-    impressions: "sum", reach: "sum", clicks: "sum",
-    conversions: "sum", spend: "sum", conversion_value: "sum",
-  }).sort(sortPeriodAsc);
-  metaPeriod.forEach(addMetaRates);
-
-  const ga4Total = sumFields(ga4Period,
-    ["sessions", "users", "detail_views", "cart_adds", "checkout_starts",
-     "purchases", "revenue", "bounce_sessions", "total_duration"]);
-  recomputeGa4Derived(ga4Total);
-  const metaTotal = sumFields(metaPeriod,
-    ["impressions", "reach", "clicks", "conversions", "spend", "conversion_value"]);
-  addMetaRates(metaTotal);
-
-  // Previous period totals
-  const prev = previousPeriodTotals();
+  // ── KPI 단위 비교: 현재 1단위(일/주/월) vs 직전 1단위 ─────────────────────
+  const [curS, curE] = currentUnitWindow();
+  const [prvS, prvE] = previousUnitWindow();
+  const ga4Curr  = unitGa4Totals(curS, curE);
+  const ga4Prev  = unitGa4Totals(prvS, prvE);
+  const metaCurr = unitMetaTotals(curS, curE);
+  const metaPrev = unitMetaTotals(prvS, prvE);
 
   // Period label
+  const curLabel = curS && curE ? (curS === curE ? curS : `${curS} → ${curE}`) : "-";
+  const prvLabel = prvS && prvE ? (prvS === prvE ? prvS : `${prvS} → ${prvE}`) : "-";
   document.getElementById("overviewPeriodLabel").textContent =
-    `${state.startDate} → ${state.endDate} · ${gLabel()} 집계${state.compare ? " · 전기간 대비" : ""}`;
+    `KPI: ${curLabel} (${unitLabel()}) vs ${prvLabel} (${unitDeltaLabel()}) · 시계열/표/히트맵: ${state.startDate} → ${state.endDate}`;
 
-  // KPI band
-  const blendedRoas = metaTotal.spend ? ga4Total.revenue / metaTotal.spend : 0;
-  const prevBlendedRoas = prev.spend ? prev.revenue / prev.spend : 0;
-  const blendedCac = ga4Total.purchases ? metaTotal.spend / ga4Total.purchases : 0;
-  const prevBlendedCac = prev.purchases ? prev.spend / prev.purchases : 0;
-
-  // Daily sparkline series (independent of state.granularity — always smooth)
-  const dailyGa4  = dailySeries(ga4Rows, ["revenue", "purchases", "sessions"]);
+  // Daily sparkline series (date-range 컨텍스트)
+  const dailyGa4  = dailySeries(ga4Rows, ["revenue", "purchases", "sessions", "detail_views", "cart_adds", "checkout_starts"]);
   const dailyMeta = dailySeries(metaRows, ["spend"]);
   const blendedSeries = blendedSparkSeries(ga4Rows, metaRows);
 
-  renderKpis("overviewKpis", [
-    kpi("매출",    ga4Total.revenue,      "Total Revenue", prev.revenue, fmtMoney,   dailyGa4.revenue, false, "primary"),
-    kpi("광고비",  metaTotal.spend,        "Meta Spend",    prev.spend,    fmtMoney,  dailyMeta.spend,  true,  "warning"),
-    kpi("블렌디드 ROAS", blendedRoas,     "Revenue/Spend", prevBlendedRoas, fmtDecimal, blendedSeries.roas, false, "violet"),
-    kpi("구매수",   ga4Total.purchases,   "Purchases",     prev.purchases, fmtInt,    dailyGa4.purchases, false, "positive"),
-    kpi("블렌디드 CAC", blendedCac,       "Spend/Purchase", prevBlendedCac, fmtMoney, blendedSeries.cac,  true,  "warning"),
-    kpi("유입",     ga4Total.sessions,    "Sessions",      prev.sessions, fmtInt,    dailyGa4.sessions, false, "primary"),
+  // ── KPI 1행: 퍼널 순서 ────────────────────────────────────────────────────
+  const hasCart     = !!state.data.ga4?.has_cart;
+  const hasCheckout = !!state.data.ga4?.has_checkout;
+  const funnelKpis = [
+    kpi("유입",     ga4Curr.sessions,      "Sessions",      ga4Prev.sessions,      fmtInt,   dailyGa4.sessions,      false, "primary"),
+    kpi("상세조회", ga4Curr.detail_views,  "view_item",     ga4Prev.detail_views,  fmtInt,   dailyGa4.detail_views,  false, "primary"),
+  ];
+  if (hasCart)     funnelKpis.push(kpi("장바구니", ga4Curr.cart_adds,       "add_to_cart",     ga4Prev.cart_adds,       fmtInt, dailyGa4.cart_adds,       false, "primary"));
+  if (hasCheckout) funnelKpis.push(kpi("결제시작", ga4Curr.checkout_starts, "begin_checkout",  ga4Prev.checkout_starts, fmtInt, dailyGa4.checkout_starts, false, "primary"));
+  funnelKpis.push(
+    kpi("구매",  ga4Curr.purchases, "Purchases", ga4Prev.purchases, fmtInt,   dailyGa4.purchases, false, "positive"),
+    kpi("매출",  ga4Curr.revenue,   "Revenue",   ga4Prev.revenue,   fmtMoney, dailyGa4.revenue,   false, "primary"),
+  );
+  renderKpis("overviewKpis", funnelKpis.slice(0, 6));
+
+  // ── KPI 2행: 효율 (광고비 / 블렌디드 ROAS / 블렌디드 CAC) ─────────────────
+  const blendedRoasC = metaCurr.spend ? ga4Curr.revenue / metaCurr.spend : 0;
+  const blendedRoasP = metaPrev.spend ? ga4Prev.revenue / metaPrev.spend : 0;
+  const blendedCacC  = ga4Curr.purchases ? metaCurr.spend / ga4Curr.purchases : 0;
+  const blendedCacP  = ga4Prev.purchases ? metaPrev.spend / ga4Prev.purchases : 0;
+  renderKpis("overviewEffKpis", [
+    kpi("광고비",         metaCurr.spend, "Meta Spend",     metaPrev.spend, fmtMoney,   dailyMeta.spend,    true,  "warning"),
+    kpi("블렌디드 ROAS",  blendedRoasC,   "Revenue/Spend",  blendedRoasP,   fmtDecimal, blendedSeries.roas, false, "violet"),
+    kpi("블렌디드 CAC",   blendedCacC,    "Spend/Purchase", blendedCacP,    fmtMoney,   blendedSeries.cac,  true,  "warning"),
   ]);
 
-  // Trend chart (configurable)
-  renderOverviewTrend(ga4Period, metaPeriod);
-
-  // Funnel
-  const hasCheckout = !!state.data.ga4?.has_checkout;
-  const hasCart     = !!state.data.ga4?.has_cart;
+  // ── 퍼널 (선택 기간 합산) ─────────────────────────────────────────────────
+  const ga4Total = sumFields(ga4Rows,
+    ["sessions", "users", "detail_views", "cart_adds", "checkout_starts",
+     "purchases", "revenue", "bounce_sessions", "total_duration"]);
+  recomputeGa4Derived(ga4Total);
   const steps = funnelSteps(ga4Total, hasCart, hasCheckout);
   renderFunnel("overviewFunnel", steps);
-
-  // Channel mix
-  renderChannelMix(ga4Rows);
 
   // Top campaigns
   renderTopCampaigns(metaRows);
 
-  // Heatmap (daily ROAS proxy)
+  // 유입 · 구매 시계열 (채널 분해)
+  renderOverviewTimeseries("chartOverviewTraffic", ga4Rows, "sessions", state.trafficMode, fmtInt);
+  renderOverviewTimeseries("chartOverviewPurchase", ga4Rows, "purchases", state.purchaseMode, fmtInt);
+
+  // 채널 드릴다운 테이블
+  renderOverviewChannelTable(ga4Rows);
+
+  // 히트맵 (메트릭 + 캠페인 셀렉터)
+  populateHeatmapCampaignSelect(state.data.meta?.campaigns || []);
   renderHeatmap(ga4Rows, metaRows);
 }
 
-function renderOverviewTrend(ga4Period, metaPeriod) {
-  destroyChart("chartOverviewTrend");
-  const canvas = document.getElementById("chartOverviewTrend");
+// ── 채널 분해 시계열 (유입 또는 구매) ───────────────────────────────────────
+function renderOverviewTimeseries(canvasId, ga4Rows, metricKey, mode, formatter) {
+  destroyChart(canvasId);
+  const canvas = document.getElementById(canvasId);
   if (!canvas) return;
 
-  // Merge by period
-  const periods = Array.from(new Set([...ga4Period.map((r) => r.period), ...metaPeriod.map((r) => r.period)])).sort();
-  const ga4By  = new Map(ga4Period.map((r)  => [r.period, r]));
-  const metaBy = new Map(metaPeriod.map((r) => [r.period, r]));
+  // Aggregate by [period, channel]
+  const grouped = aggregateRows(ga4Rows, ["period", "channel"], { [metricKey]: "sum" });
+  if (!grouped.length) return;
 
-  const pal = palette();
-  let ds = [];
-  if (state.overviewTrend === "revenue_spend") {
-    ds = [
-      lineDs("매출",   periods.map((p) => ga4By.get(p)?.revenue || 0),  pal.primary,  pal.primarySoft2, "y"),
-      lineDs("광고비", periods.map((p) => metaBy.get(p)?.spend  || 0),  pal.warning,  pal.warningSoft, "y"),
-    ];
-  } else if (state.overviewTrend === "roas_cpa") {
-    const roas = periods.map((p) => {
-      const sp = metaBy.get(p)?.spend || 0;
-      const rev = ga4By.get(p)?.revenue || 0;
-      return sp ? rev / sp : 0;
+  // Top channels by total of metric over the range
+  const channelTotals = new Map();
+  grouped.forEach((r) => {
+    const ch = r.channel || "(direct)";
+    channelTotals.set(ch, (channelTotals.get(ch) || 0) + (r[metricKey] || 0));
+  });
+  const topChannels = Array.from(channelTotals.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 6)
+    .map(([ch]) => ch);
+
+  // Build period axis
+  const periods = Array.from(new Set(grouped.map((r) => r.period))).sort();
+  const byKey = new Map(grouped.map((r) => [`${r.period}||${r.channel || "(direct)"}`, r[metricKey] || 0]));
+
+  // Aggregate "기타" (channels not in topChannels)
+  const includeOthers = channelTotals.size > topChannels.length;
+  const otherByPeriod = new Map(periods.map((p) => [p, 0]));
+  if (includeOthers) {
+    grouped.forEach((r) => {
+      const ch = r.channel || "(direct)";
+      if (!topChannels.includes(ch)) {
+        otherByPeriod.set(r.period, (otherByPeriod.get(r.period) || 0) + (r[metricKey] || 0));
+      }
     });
-    const cpa = periods.map((p) => {
-      const sp = metaBy.get(p)?.spend || 0;
-      const purchases = ga4By.get(p)?.purchases || 0;
-      return purchases ? sp / purchases : 0;
-    });
-    ds = [
-      lineDs("블렌디드 ROAS", roas, pal.violet,  pal.violetSoft, "y"),
-      lineDs("블렌디드 CAC",  cpa,  pal.warning, pal.warningSoft, "y1"),
-    ];
-  } else {
-    ds = [
-      lineDs("유입", periods.map((p) => ga4By.get(p)?.sessions  || 0), pal.primary,  pal.primarySoft2, "y"),
-      lineDs("구매", periods.map((p) => ga4By.get(p)?.purchases || 0), pal.positive, pal.positiveSoft, "y1"),
-    ];
   }
 
-  const hasY1 = ds.some((d) => d.yAxisID === "y1");
-  const isMoney = state.overviewTrend === "revenue_spend";
-  state.charts.chartOverviewTrend = new Chart(canvas, {
+  const pal = palette();
+  const colors = pal.channelArr;
+  const allChannels = includeOthers ? [...topChannels, "기타"] : topChannels;
+
+  // Raw values per channel
+  const valuesByChannel = allChannels.map((ch) => {
+    if (ch === "기타") return periods.map((p) => otherByPeriod.get(p) || 0);
+    return periods.map((p) => byKey.get(`${p}||${ch}`) || 0);
+  });
+
+  // For share mode: normalize to 100% per period
+  let displayValues;
+  if (mode === "share") {
+    const totals = periods.map((_, i) => valuesByChannel.reduce((s, vs) => s + vs[i], 0));
+    displayValues = valuesByChannel.map((vs) =>
+      vs.map((v, i) => totals[i] ? (v / totals[i]) * 100 : 0)
+    );
+  } else {
+    displayValues = valuesByChannel;
+  }
+
+  const datasets = allChannels.map((ch, i) => {
+    const color = ch === "기타" ? "#94A3B8" : colors[i % colors.length];
+    const isShare = mode === "share";
+    return {
+      label: ch,
+      data: displayValues[i],
+      borderColor: color,
+      backgroundColor: isShare ? color + "CC" : color + "33",
+      fill: isShare ? (i === 0 ? "origin" : "-1") : false,
+      tension: 0.32,
+      pointRadius: periods.length <= 14 ? 2.5 : 0,
+      pointHoverRadius: 5,
+      pointBackgroundColor: color,
+      borderWidth: 2,
+    };
+  });
+
+  state.charts[canvasId] = new Chart(canvas, {
     type: "line",
-    data: { labels: periods, datasets: ds },
+    data: { labels: periods, datasets },
     options: {
       responsive: true,
       maintainAspectRatio: false,
       interaction: { mode: "index", intersect: false },
       plugins: {
-        legend: { display: true, position: "top", align: "end", labels: { boxWidth: 8, boxHeight: 8, padding: 14, usePointStyle: true, font: { size: 11, weight: "600" } } },
-        tooltip: { callbacks: { label: (ctx) => ` ${ctx.dataset.label}: ${ctx.dataset.yAxisID === "y1" ? fmtDecimal(ctx.raw) : (isMoney ? fmtMoney(ctx.raw) : fmtInt(ctx.raw))}` } },
+        legend: {
+          display: true, position: "top", align: "end",
+          labels: { boxWidth: 8, boxHeight: 8, padding: 12, usePointStyle: true, font: { size: 11, weight: "600" } },
+        },
+        tooltip: {
+          callbacks: {
+            label: (ctx) => ` ${ctx.dataset.label}: ${mode === "share" ? fmtPct(ctx.raw) : formatter(ctx.raw)}`,
+          },
+        },
       },
       scales: {
         x: { grid: { display: false }, ticks: { maxTicksLimit: 10, maxRotation: 0 } },
-        y: { position: "left",  grid: { color: palette().grid }, border: { display: false },
-             ticks: { maxTicksLimit: 5, callback: (v) => isMoney ? fmtMoney(v) : fmtInt(v) } },
-        ...(hasY1 ? { y1: { position: "right", grid: { display: false }, border: { display: false },
-                            ticks: { maxTicksLimit: 5, callback: (v) => fmtDecimal(v) } } } : {}),
+        y: {
+          stacked: mode === "share",
+          beginAtZero: true,
+          max: mode === "share" ? 100 : undefined,
+          grid: { color: palette().grid },
+          border: { display: false },
+          ticks: {
+            maxTicksLimit: 5,
+            callback: (v) => mode === "share" ? fmtPct(v) : formatter(v),
+          },
+        },
       },
     },
   });
 }
 
-function renderChannelMix(rows) {
-  const byChan = aggregateRows(rows, ["channel"], {
+// ── 채널 드릴다운 테이블 ────────────────────────────────────────────────────
+function renderOverviewChannelTable(ga4Rows) {
+  const byChan = aggregateRows(ga4Rows, ["channel"], {
     sessions: "sum", purchases: "sum", revenue: "sum",
   }).sort((a, b) => b.revenue - a.revenue);
-  const totalRev = byChan.reduce((s, r) => s + r.revenue, 0);
-  const totalSess = byChan.reduce((s, r) => s + r.sessions, 0);
 
-  const pal = palette();
-  const colors = pal.channelArr;
-  const labels = byChan.map((r) => r.channel || "(direct)");
-  const values = byChan.map((r) => r.revenue);
+  if (!byChan.length) {
+    document.getElementById("overviewChannelTable").innerHTML =
+      `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:18px">데이터 없음</td></tr>`;
+    return;
+  }
 
-  doughnutChart("chartChannelMix", labels, values, colors);
+  const totalSess = byChan.reduce((s, r) => s + r.sessions, 0) || 1;
+  const totalRev  = byChan.reduce((s, r) => s + r.revenue, 0)  || 1;
 
-  document.getElementById("channelLegend").innerHTML = byChan.slice(0, 10).map((r, i) => {
-    const revPct = totalRev ? (r.revenue / totalRev * 100) : 0;
-    const sesPct = totalSess ? (r.sessions / totalSess * 100) : 0;
+  document.getElementById("overviewChannelTable").innerHTML = byChan.map((r) => {
+    const sessShare = (r.sessions / totalSess) * 100;
+    const revShare  = (r.revenue  / totalRev)  * 100;
+    const pRate = r.sessions ? (r.purchases / r.sessions) * 100 : 0;
+    const aov   = r.purchases ? r.revenue / r.purchases : 0;
     return `
-      <div class="legend-row">
-        <span class="swatch" style="background:${colors[i % colors.length]}"></span>
-        <span class="name">${esc(r.channel || "(direct)")}</span>
-        <span class="value">${fmtMoney(r.revenue)}</span>
-        <span class="pct">${revPct.toFixed(1)}% / 유입 ${sesPct.toFixed(1)}%</span>
-      </div>
+      <tr>
+        <td class="name-cell strong">${esc(r.channel || "(direct)")}</td>
+        <td class="num">${fmtInt(r.sessions)}</td>
+        <td class="num">${sessShare.toFixed(1)}%</td>
+        <td class="num">${fmtInt(r.purchases)}</td>
+        <td class="num">${fmtPct(pRate)}</td>
+        <td class="num">${fmtMoney(r.revenue)}</td>
+        <td class="num">${revShare.toFixed(1)}%</td>
+        <td class="num">${fmtMoney(aov)}</td>
+      </tr>
     `;
   }).join("");
+}
+
+// ── 히트맵 캠페인 셀렉터 옵션 채우기 ────────────────────────────────────────
+function populateHeatmapCampaignSelect(allMetaRows) {
+  const sel = document.getElementById("heatmapCampaign");
+  if (!sel) return;
+  // Top campaigns by spend overall (date-range)
+  const filtered = filterByDate(allMetaRows);
+  const byCamp = aggregateRows(filtered, ["campaign_name"], { spend: "sum" })
+    .filter((r) => r.spend > 0)
+    .sort((a, b) => b.spend - a.spend)
+    .slice(0, 30);
+  const currentValue = state.heatmapCampaign;
+  const opts = [`<option value="">전체 캠페인</option>`].concat(
+    byCamp.map((r) => `<option value="${esc(r.campaign_name)}"${currentValue === r.campaign_name ? " selected" : ""}>${esc(r.campaign_name)} (${fmtCompact(r.spend)})</option>`)
+  );
+  // Preserve user selection even if not in top 30 (rare)
+  if (currentValue && !byCamp.some((r) => r.campaign_name === currentValue)) {
+    opts.push(`<option value="${esc(currentValue)}" selected>${esc(currentValue)}</option>`);
+  }
+  sel.innerHTML = opts.join("");
 }
 
 function renderTopCampaigns(metaRows) {
@@ -483,9 +586,23 @@ function renderTopCampaigns(metaRows) {
 }
 
 function renderHeatmap(ga4Rows, metaRows) {
-  // Group by day; show daily ROAS proxy
+  const metric = state.heatmapMetric;        // "roas" | "revenue" | "cvr"
+  const campaign = state.heatmapCampaign;    // "" = 전체
+
+  // Campaign filter
+  let mFiltered = metaRows;
+  let gFiltered = ga4Rows;
+  if (campaign) {
+    mFiltered = metaRows.filter((r) => r.campaign_name === campaign);
+    // ga4 campaign mapping은 정확치 않을 수 있어 부분일치 fallback
+    gFiltered = ga4Rows.filter((r) => (r.campaign || "") === campaign);
+    // 부분일치가 0건이면 전체 ga4를 유지(ROAS만 메타 필터링)
+    if (!gFiltered.length) gFiltered = ga4Rows;
+  }
+
+  // Group by date
   const ga4ByDate  = new Map();
-  ga4Rows.forEach((r) => {
+  gFiltered.forEach((r) => {
     const t = ga4ByDate.get(r.date) || { revenue: 0, sessions: 0, purchases: 0 };
     t.revenue   += r.revenue   || 0;
     t.sessions  += r.sessions  || 0;
@@ -493,47 +610,71 @@ function renderHeatmap(ga4Rows, metaRows) {
     ga4ByDate.set(r.date, t);
   });
   const metaByDate = new Map();
-  metaRows.forEach((r) => {
+  mFiltered.forEach((r) => {
     const t = metaByDate.get(r.date) || { spend: 0 };
     t.spend += r.spend || 0;
     metaByDate.set(r.date, t);
   });
 
-  // Collect unique dates within range
   const dates = Array.from(new Set([...ga4ByDate.keys(), ...metaByDate.keys()])).sort();
+  const target = document.getElementById("overviewHeatmap");
+  const subEl = document.getElementById("overviewHeatmapSub");
+
+  // Update subtitle
+  if (subEl) {
+    const metricLabel = { roas: "ROAS", revenue: "매출", cvr: "구매율" }[metric] || metric;
+    const campaignLabel = campaign ? `“${campaign}”` : "전체 캠페인";
+    subEl.textContent = `${metricLabel} · ${campaignLabel} · 진할수록 값 높음`;
+  }
+
   if (!dates.length) {
-    document.getElementById("overviewHeatmap").innerHTML =
-      `<div style="color:var(--muted);padding:18px;text-align:center">선택 기간에 데이터가 없습니다</div>`;
+    target.innerHTML = `<div style="color:var(--muted);padding:18px;text-align:center">선택 기간에 데이터가 없습니다</div>`;
     return;
   }
 
-  // Build a Sun-Mon...Sat grid by ISO week starting Monday
+  // Compute metric value per date
   const cellByDate = new Map();
   dates.forEach((d) => {
-    const ga = ga4ByDate.get(d)  || { revenue: 0, sessions: 0 };
+    const ga = ga4ByDate.get(d)  || { revenue: 0, sessions: 0, purchases: 0 };
     const mt = metaByDate.get(d) || { spend: 0 };
     const roas = mt.spend ? ga.revenue / mt.spend : null;
-    cellByDate.set(d, { ...ga, ...mt, roas });
+    const cvr  = ga.sessions ? (ga.purchases / ga.sessions) * 100 : null;
+    let value;
+    if (metric === "roas")    value = roas;
+    else if (metric === "cvr") value = cvr;
+    else                       value = ga.revenue || null;
+    cellByDate.set(d, { ...ga, ...mt, roas, cvr, value });
   });
 
+  // Build grid (Mon..Sun rows)
   const startDate = parseLocalDate(dates[0]);
   const endDate   = parseLocalDate(dates[dates.length - 1]);
-  // Snap to week start (Mon)
   const weekStart = new Date(startDate);
-  const dow = weekStart.getDay() || 7; // 1..7 (Mon=1)
+  const dow = weekStart.getDay() || 7;
   weekStart.setDate(weekStart.getDate() - (dow - 1));
 
   const dowHeaders = ["월", "화", "수", "목", "금", "토", "일"];
   let html = `<div class="week-label"></div>` + dowHeaders.map((d) => `<div class="dow-head">${d}</div>`).join("");
 
-  const roasValues = Array.from(cellByDate.values()).map((v) => v.roas).filter((v) => v != null && isFinite(v));
-  const maxRoas = roasValues.length ? Math.max(...roasValues) : 1;
-  const minRoas = roasValues.length ? Math.min(...roasValues) : 0;
+  const values = Array.from(cellByDate.values()).map((v) => v.value).filter((v) => v != null && isFinite(v));
+  const maxV = values.length ? Math.max(...values) : 1;
+  const minV = values.length ? Math.min(...values) : 0;
+
+  const fmtMetric = (v) => {
+    if (v == null) return "-";
+    if (metric === "roas") return v.toFixed(2);
+    if (metric === "cvr")  return `${v.toFixed(1)}%`;
+    return fmtCompact(v);
+  };
+  // 보조 라벨: revenue 모드면 세션, 그 외면 매출 컴팩트 표기
+  const subLabel = (cell) => {
+    if (metric === "revenue") return `${fmtInt(cell.sessions)} 세션`;
+    return fmtCompact(cell.revenue);
+  };
 
   const cursor = new Date(weekStart);
   let safety = 0;
   while (cursor <= endDate && safety < 60) {
-    // Week label = Mon date
     html += `<div class="week-label">${cursor.getMonth() + 1}/${cursor.getDate()}</div>`;
     for (let i = 0; i < 7; i++) {
       const iso = fmtDate(cursor);
@@ -542,14 +683,15 @@ function renderHeatmap(ga4Rows, metaRows) {
       if (!cell || !inRange) {
         html += `<div class="heat-cell empty"><span class="hc-val">·</span></div>`;
       } else {
-        const ratio = (cell.roas != null && maxRoas > minRoas)
-          ? (cell.roas - minRoas) / (maxRoas - minRoas)
-          : (cell.roas ? 0.5 : 0);
-        const bg = heatColor(ratio, cell.roas);
+        const ratio = (cell.value != null && maxV > minV)
+          ? (cell.value - minV) / (maxV - minV)
+          : (cell.value ? 0.5 : 0);
+        const bg = heatColor(ratio, cell.value);
+        const title = `${iso} · 매출 ${fmtMoney(cell.revenue)} · 광고비 ${fmtMoney(cell.spend)} · ROAS ${cell.roas != null ? cell.roas.toFixed(2) : "-"} · 구매율 ${cell.cvr != null ? cell.cvr.toFixed(1) + "%" : "-"}`;
         html += `
-          <div class="heat-cell" style="background:${bg}" title="${iso} · 매출 ${fmtMoney(cell.revenue)} · 광고비 ${fmtMoney(cell.spend)} · ROAS ${cell.roas != null ? cell.roas.toFixed(2) : "-"}">
-            <span class="hc-val">${cell.roas != null ? cell.roas.toFixed(1) : "-"}</span>
-            <span class="hc-sub">${fmtCompact(cell.revenue)}</span>
+          <div class="heat-cell" style="background:${bg}" title="${esc(title)}">
+            <span class="hc-val">${fmtMetric(cell.value)}</span>
+            <span class="hc-sub">${esc(subLabel(cell))}</span>
           </div>
         `;
       }
@@ -557,14 +699,14 @@ function renderHeatmap(ga4Rows, metaRows) {
     }
     safety++;
   }
-  document.getElementById("overviewHeatmap").innerHTML = html;
+  target.innerHTML = html;
 }
 
-function heatColor(ratio, roas) {
-  // Lo=red, mid=warning, high=green
+function heatColor(ratio, value) {
+  // Lo=red, mid=warning, high=green — 가독성을 위해 alpha 범위 확장
   const r = Math.max(0, Math.min(1, ratio));
-  let alpha = 0.18 + 0.55 * r;
-  if (roas == null || roas === 0) alpha = 0.06;
+  let alpha = 0.30 + 0.65 * r;
+  if (value == null || value === 0) alpha = 0.08;
   if (r < 0.4)  return `rgba(220, 38, 38, ${alpha})`;
   if (r < 0.7)  return `rgba(217, 119, 6, ${alpha})`;
   return `rgba(5, 150, 105, ${alpha})`;
@@ -1116,16 +1258,16 @@ function renderKpis(containerId, items) {
     const sparkHtml = sparklineSvg(item.sparkPoints, item.color);
     return `
       <article class="kpi">
-        <div class="kpi-label">
-          <span class="kpi-icon" style="background:var(--${item.color}-soft);color:var(--${item.color})">${kpiIcon()}</span>
-          ${esc(item.label)}
-        </div>
-        <div class="kpi-value">${esc(item.formatter(item.value))}</div>
-        <div class="kpi-meta">
-          <span>${esc(item.helper)}</span>
+        <div class="kpi-head">
+          <div class="kpi-label">
+            <span class="kpi-icon" style="background:var(--${item.color}-soft);color:var(--${item.color})">${kpiIcon()}</span>
+            ${esc(item.label)}
+          </div>
           ${deltaHtml}
         </div>
-        ${sparkHtml}
+        <div class="kpi-value">${esc(item.formatter(item.value))}</div>
+        <div class="kpi-helper">${esc(item.helper)}</div>
+        <div class="kpi-spark">${sparkHtml}</div>
       </article>
     `;
   }).join("");
@@ -1441,6 +1583,75 @@ function prevPeriodWindow() {
   const prevStart = new Date(prevEnd);
   prevStart.setDate(prevStart.getDate() - days + 1);
   return [fmtDate(prevStart), fmtDate(prevEnd)];
+}
+
+// ── Granularity-aware unit windows (overview KPI 비교용) ────────────────────
+// 현재 단위: state.endDate가 속한 일/주/월의 시작 ~ state.endDate
+// 직전 단위: 현재 단위 길이와 동일하게 1단위 전으로 이동
+function unitStart(dateStr, granularity) {
+  const d = parseLocalDate(dateStr);
+  if (granularity === "week") {
+    const dow = d.getDay() || 7; // Mon=1..Sun=7
+    const mon = new Date(d);
+    mon.setDate(mon.getDate() - (dow - 1));
+    return mon;
+  }
+  if (granularity === "month") return new Date(d.getFullYear(), d.getMonth(), 1);
+  return new Date(d);
+}
+
+function currentUnitWindow() {
+  if (!state.endDate) return [null, null];
+  const start = unitStart(state.endDate, state.granularity);
+  const end   = parseLocalDate(state.endDate);
+  return [fmtDate(start), fmtDate(end)];
+}
+
+function previousUnitWindow() {
+  if (!state.endDate) return [null, null];
+  const start = unitStart(state.endDate, state.granularity);
+  const end   = parseLocalDate(state.endDate);
+  const daysInCurrent = Math.round((end - start) / 86400000) + 1;
+
+  let prevStart;
+  if (state.granularity === "week") {
+    prevStart = new Date(start);
+    prevStart.setDate(prevStart.getDate() - 7);
+  } else if (state.granularity === "month") {
+    prevStart = new Date(start.getFullYear(), start.getMonth() - 1, 1);
+  } else {
+    prevStart = new Date(start);
+    prevStart.setDate(prevStart.getDate() - 1);
+  }
+  const prevEnd = new Date(prevStart);
+  prevEnd.setDate(prevEnd.getDate() + daysInCurrent - 1);
+  return [fmtDate(prevStart), fmtDate(prevEnd)];
+}
+
+function unitGa4Totals(since, until) {
+  if (!since || !until) return {};
+  const rows = filterByDateRange(state.data.ga4?.rows || [], since, until);
+  const totals = sumFields(rows, [
+    "sessions", "users", "new_users", "detail_views", "cart_adds",
+    "checkout_starts", "purchases", "revenue", "bounce_sessions", "total_duration",
+  ]);
+  recomputeGa4Derived(totals);
+  return totals;
+}
+
+function unitMetaTotals(since, until) {
+  if (!since || !until) return {};
+  const rows = filterByDateRange(state.data.meta?.campaigns || [], since, until);
+  const totals = sumFields(rows, ["impressions", "reach", "clicks", "conversions", "spend", "conversion_value"]);
+  addMetaRates(totals);
+  return totals;
+}
+
+function unitLabel() {
+  return { day: "당일", week: "이번 주", month: "이번 달" }[state.granularity] || "현재";
+}
+function unitDeltaLabel() {
+  return { day: "전일 대비", week: "전주 대비", month: "전월 대비" }[state.granularity] || "전기간 대비";
 }
 
 function previousGa4Totals() {

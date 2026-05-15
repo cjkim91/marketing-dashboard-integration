@@ -112,47 +112,22 @@
             <p id="overviewPeriodLabel" class="page-sub"></p>
           </div>
 
+          <!-- Funnel-order KPIs (단위 1개 vs 직전 1단위 비교) -->
           <section id="overviewKpis" class="kpi-row"></section>
 
-          <section class="grid-2">
-            <article class="card card-lg">
-              <header class="card-head">
-                <div>
-                  <h2>매출 · 광고비 · ROAS</h2>
-                  <p class="card-sub">기간 흐름과 핵심 효율 지표</p>
-                </div>
-                <div class="segmented compact" role="group" aria-label="오버뷰 트렌드 메트릭">
-                  <button class="active" data-overview-trend="revenue_spend">매출/광고비</button>
-                  <button data-overview-trend="roas_cpa">ROAS/CPA</button>
-                  <button data-overview-trend="sessions_purchases">유입/구매</button>
-                </div>
-              </header>
-              <div class="chart-tall"><canvas id="chartOverviewTrend"></canvas></div>
-            </article>
+          <!-- 효율 KPI 보조 행 -->
+          <section id="overviewEffKpis" class="kpi-row kpi-row-sub"></section>
 
+          <!-- 퍼널 스냅샷 + 상위 캠페인 -->
+          <section class="grid-2">
             <article class="card">
               <header class="card-head">
                 <div>
                   <h2>퍼널 스냅샷</h2>
-                  <p class="card-sub">GA4 단계별 전환</p>
+                  <p class="card-sub">GA4 단계별 전환 · 선택 기간 합산</p>
                 </div>
               </header>
               <div id="overviewFunnel" class="funnel"></div>
-            </article>
-          </section>
-
-          <section class="grid-2">
-            <article class="card">
-              <header class="card-head">
-                <div>
-                  <h2>채널 믹스</h2>
-                  <p class="card-sub">유입 · 매출 기여도</p>
-                </div>
-              </header>
-              <div class="channel-mix-grid">
-                <div class="donut-wrap"><canvas id="chartChannelMix"></canvas></div>
-                <div class="legend" id="channelLegend"></div>
-              </div>
             </article>
 
             <article class="card">
@@ -180,15 +155,87 @@
             </article>
           </section>
 
-          <section class="card">
+          <!-- 유입 추이 (채널 분해, 라인/비중 토글) -->
+          <article class="card">
+            <header class="card-head with-controls">
+              <div>
+                <h2>유입 추이</h2>
+                <p class="card-sub">채널별 세션 — 절대값 또는 100% 비중</p>
+              </div>
+              <div class="card-head-controls">
+                <div class="segmented compact" role="group" aria-label="유입 표시 모드">
+                  <button class="active" data-traffic-mode="absolute">절대값</button>
+                  <button data-traffic-mode="share">비중</button>
+                </div>
+              </div>
+            </header>
+            <div class="chart-tall"><canvas id="chartOverviewTraffic"></canvas></div>
+          </article>
+
+          <!-- 구매 추이 (채널 분해, 라인/비중 토글) -->
+          <article class="card">
+            <header class="card-head with-controls">
+              <div>
+                <h2>구매 추이</h2>
+                <p class="card-sub">채널별 구매 수 — 절대값 또는 100% 비중</p>
+              </div>
+              <div class="card-head-controls">
+                <div class="segmented compact" role="group" aria-label="구매 표시 모드">
+                  <button class="active" data-purchase-mode="absolute">절대값</button>
+                  <button data-purchase-mode="share">비중</button>
+                </div>
+              </div>
+            </header>
+            <div class="chart-tall"><canvas id="chartOverviewPurchase"></canvas></div>
+          </article>
+
+          <!-- 채널 드릴다운 테이블 -->
+          <article class="card">
             <header class="card-head">
               <div>
+                <h2>채널별 성과</h2>
+                <p class="card-sub">선택 기간 합산</p>
+              </div>
+            </header>
+            <div class="table-scroll">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>채널</th>
+                    <th class="num">유입</th>
+                    <th class="num">유입 비중</th>
+                    <th class="num">구매</th>
+                    <th class="num">구매율</th>
+                    <th class="num">매출</th>
+                    <th class="num">매출 비중</th>
+                    <th class="num">AOV</th>
+                  </tr>
+                </thead>
+                <tbody id="overviewChannelTable"></tbody>
+              </table>
+            </div>
+          </article>
+
+          <!-- 히트맵 (캠페인 + 메트릭 셀렉터) -->
+          <article class="card">
+            <header class="card-head with-controls">
+              <div>
                 <h2>일자별 성과 히트맵</h2>
-                <p class="card-sub">광고비 대비 매출 효율 — 진할수록 ROAS 높음</p>
+                <p class="card-sub" id="overviewHeatmapSub">진할수록 값 높음</p>
+              </div>
+              <div class="card-head-controls">
+                <select id="heatmapCampaign" class="select-input" aria-label="캠페인 필터">
+                  <option value="">전체 캠페인</option>
+                </select>
+                <div class="segmented compact" role="group" aria-label="히트맵 메트릭">
+                  <button class="active" data-heatmap-metric="roas">ROAS</button>
+                  <button data-heatmap-metric="revenue">매출</button>
+                  <button data-heatmap-metric="cvr">구매율</button>
+                </div>
               </div>
             </header>
             <div id="overviewHeatmap" class="heatmap"></div>
-          </section>
+          </article>
         </section>
 
         <!-- ══ GA4 FUNNEL ══════════════════════════════════════════ -->
