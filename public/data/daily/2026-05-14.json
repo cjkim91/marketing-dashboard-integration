@@ -6258,19 +6258,19 @@
         "date": "2026-05-14",
         "campaign_id": "6787068561584",
         "campaign_name": "CONV_100원 가이드북_250529",
-        "impressions": 4130,
+        "impressions": 4131,
         "reach": 3596,
         "clicks": 87,
-        "spend": 33437.0,
+        "spend": 33438.0,
         "conversions": 26,
         "conversion_value": 0.0,
         "frequency": 0.0,
-        "ctr": 2.1065,
+        "ctr": 2.106,
         "cvr": 29.8851,
-        "cpc": 384.33,
-        "cpa": 1286.04,
+        "cpc": 384.34,
+        "cpa": 1286.08,
         "roas": 0.0,
-        "cpm": 8096.13
+        "cpm": 8094.41
       },
       {
         "date": "2026-05-14",
@@ -6356,19 +6356,19 @@
         "campaign_name": "CONV_100원 가이드북_250529",
         "adset_id": "52504366251188",
         "adset_name": "260503_creative_test",
-        "impressions": 2209,
+        "impressions": 2210,
         "reach": 1983,
         "clicks": 40,
-        "spend": 18480.0,
+        "spend": 18481.0,
         "conversions": 15,
         "conversion_value": 0.0,
         "frequency": 1.11,
-        "ctr": 1.8108,
+        "ctr": 1.81,
         "cvr": 37.5,
-        "cpc": 462.0,
-        "cpa": 1232.0,
+        "cpc": 462.02,
+        "cpa": 1232.07,
         "roas": 0.0,
-        "cpm": 8365.78
+        "cpm": 8362.44
       },
       {
         "date": "2026-05-14",
@@ -6466,19 +6466,19 @@
         "adset_name": "260503_creative_test",
         "ad_id": "52504366250788",
         "ad_name": "유럽가이드북 0원_영상",
-        "impressions": 2209,
+        "impressions": 2210,
         "reach": 1983,
         "clicks": 40,
-        "spend": 18480.0,
+        "spend": 18481.0,
         "conversions": 15,
         "conversion_value": 0.0,
         "frequency": 1.11,
-        "ctr": 1.8108,
+        "ctr": 1.81,
         "cvr": 37.5,
-        "cpc": 462.0,
-        "cpa": 1232.0,
+        "cpc": 462.02,
+        "cpa": 1232.07,
         "roas": 0.0,
-        "cpm": 8365.78
+        "cpm": 8362.44
       },
       {
         "date": "2026-05-14",
@@ -6784,16 +6784,16 @@
         "impressions": 224,
         "reach": 0,
         "clicks": 52,
-        "spend": 3847.0,
+        "spend": 3845.0,
         "conversions": 0,
         "conversion_value": 0.0,
         "frequency": 0.0,
         "ctr": 23.2143,
         "cvr": 0.0,
-        "cpc": 73.98,
+        "cpc": 73.94,
         "cpa": 0,
         "roas": 0.0,
-        "cpm": 17174.11
+        "cpm": 17165.18
       },
       {
         "date": "2026-05-14",
@@ -6881,19 +6881,19 @@
         "publisher_platform": "facebook",
         "platform_position": "feed",
         "placement": "facebook / feed",
-        "impressions": 272,
+        "impressions": 273,
         "reach": 0,
         "clicks": 7,
-        "spend": 2421.0,
+        "spend": 2425.0,
         "conversions": 0,
         "conversion_value": 0.0,
         "frequency": 0.0,
-        "ctr": 2.5735,
+        "ctr": 2.5641,
         "cvr": 0.0,
-        "cpc": 345.86,
+        "cpc": 346.43,
         "cpa": 0,
         "roas": 0.0,
-        "cpm": 8900.74
+        "cpm": 8882.78
       },
       {
         "date": "2026-05-14",
@@ -6934,16 +6934,16 @@
         "impressions": 872,
         "reach": 0,
         "clicks": 4,
-        "spend": 8152.0,
+        "spend": 8150.0,
         "conversions": 1,
         "conversion_value": 49000.0,
         "frequency": 0.0,
         "ctr": 0.4587,
         "cvr": 25.0,
-        "cpc": 2038.0,
-        "cpa": 8152.0,
-        "roas": 6.0108,
-        "cpm": 9348.62
+        "cpc": 2037.5,
+        "cpa": 8150.0,
+        "roas": 6.0123,
+        "cpm": 9346.33
       },
       {
         "date": "2026-05-14",
@@ -6956,7 +6956,7 @@
         "publisher_platform": "instagram",
         "platform_position": "instagram_explore_grid_home",
         "placement": "instagram / instagram_explore_grid_home",
-        "impressions": 1653,
+        "impressions": 1652,
         "reach": 0,
         "clicks": 1,
         "spend": 900.0,
@@ -6968,7 +6968,7 @@
         "cpc": 900.0,
         "cpa": 0,
         "roas": 0.0,
-        "cpm": 544.46
+        "cpm": 544.79
       },
       {
         "date": "2026-05-14",
@@ -7281,19 +7281,19 @@
         "publisher_platform": "facebook",
         "platform_position": "feed",
         "placement": "facebook / feed",
-        "impressions": 310,
+        "impressions": 311,
         "reach": 0,
         "clicks": 16,
-        "spend": 2376.0,
+        "spend": 2377.0,
         "conversions": 6,
         "conversion_value": 0.0,
         "frequency": 0.0,
-        "ctr": 5.1613,
+        "ctr": 5.1447,
         "cvr": 37.5,
-        "cpc": 148.5,
-        "cpa": 396.0,
+        "cpc": 148.56,
+        "cpa": 396.17,
         "roas": 0.0,
-        "cpm": 7664.52
+        "cpm": 7643.09
       },
       {
         "date": "2026-05-14",
@@ -7997,5 +7997,5 @@
       }
     ]
   },
-  "fetched_at": "2026-05-15T10:57:18.769666+00:00"
+  "fetched_at": "2026-05-15T11:32:27.957687+00:00"
 }
