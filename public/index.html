@@ -112,7 +112,7 @@
             <p id="overviewPeriodLabel" class="page-sub"></p>
           </div>
 
-          <!-- Funnel-order KPIs (단위 1개 vs 직전 1단위 비교) -->
+          <!-- Funnel-order KPIs (선택 기간 합산 vs 직전 동일 기간) -->
           <section id="overviewKpis" class="kpi-row"></section>
 
           <!-- 효율 KPI 보조 행 -->
@@ -134,7 +134,7 @@
               <header class="card-head">
                 <div>
                   <h2>상위 캠페인</h2>
-                  <p class="card-sub">광고비 기준 · 단위 1개 + 단위 대비 변화</p>
+                  <p class="card-sub">광고비 기준 · 선택 기간 + 직전 동일 기간 대비</p>
                 </div>
                 <a class="link-btn" data-jump="meta">전체 보기 →</a>
               </header>
@@ -158,14 +158,20 @@
             </article>
           </section>
 
-          <!-- 유입·구매·구매율 추이 (3 차트 가로, 공통 범례·토글) -->
+          <!-- 유입·구매·구매 전환율 추이 (3 차트 가로, 공통 범례·토글·그룹) -->
           <article class="card">
             <header class="card-head with-controls">
               <div>
-                <h2>유입 · 구매 · 구매율 추이</h2>
-                <p class="card-sub">채널별 — 절대값 또는 100% 비중 (구매율은 라인 유지)</p>
+                <h2>유입 · 구매 · 구매 전환율 추이</h2>
+                <p class="card-sub">절대값 또는 100% 비중 (구매 전환율은 라인 유지)</p>
               </div>
               <div class="card-head-controls">
+                <select id="trendGroup" class="select-input" aria-label="그룹 단위">
+                  <option value="channel">채널 (기본)</option>
+                  <option value="source">소스</option>
+                  <option value="source_medium">Source / Medium</option>
+                  <option value="campaign">캠페인</option>
+                </select>
                 <div class="segmented compact" role="group" aria-label="표시 모드">
                   <button class="active" data-trend-mode="absolute">절대값</button>
                   <button data-trend-mode="share">비중</button>
@@ -183,7 +189,7 @@
                 <div class="chart-mid"><canvas id="chartOverviewPurchase"></canvas></div>
               </div>
               <div class="trend-3col-cell">
-                <div class="trend-3col-title">구매율</div>
+                <div class="trend-3col-title">구매 전환율</div>
                 <div class="chart-mid"><canvas id="chartOverviewCvr"></canvas></div>
               </div>
             </div>
@@ -194,7 +200,7 @@
             <header class="card-head">
               <div>
                 <h2>채널별 성과</h2>
-                <p class="card-sub">단위 1개 + 단위 대비 변화</p>
+                <p class="card-sub">선택 기간 + 직전 동일 기간 대비</p>
               </div>
             </header>
             <div class="table-scroll">
@@ -205,7 +211,7 @@
                     <th class="num">유입</th>
                     <th class="num">유입 비중</th>
                     <th class="num">구매</th>
-                    <th class="num">구매율</th>
+                    <th class="num">구매 전환율</th>
                     <th class="num">매출</th>
                     <th class="num">매출 비중</th>
                     <th class="num">AOV</th>
@@ -230,7 +236,7 @@
                 <div class="segmented compact" role="group" aria-label="히트맵 메트릭">
                   <button class="active" data-heatmap-metric="roas">ROAS</button>
                   <button data-heatmap-metric="revenue">매출</button>
-                  <button data-heatmap-metric="cvr">구매율</button>
+                  <button data-heatmap-metric="cvr">구매 전환율</button>
                 </div>
               </div>
             </header>
@@ -273,7 +279,7 @@
                       <th class="num">유입</th>
                       <th class="num">비중</th>
                       <th class="num">구매</th>
-                      <th class="num">구매율</th>
+                      <th class="num">구매 전환율</th>
                       <th class="num">매출</th>
                     </tr>
                   </thead>
@@ -326,7 +332,7 @@
                       <tr>
                         <th>기기</th>
                         <th class="num">유입</th>
-                        <th class="num">구매율</th>
+                        <th class="num">구매 전환율</th>
                         <th class="num">매출</th>
                         <th class="num">이탈률</th>
                       </tr>
@@ -351,7 +357,7 @@
                       <th>랜딩페이지</th>
                       <th class="num sortable" data-sort-key="sessions" data-sort-scope="landing">유입</th>
                       <th class="num sortable" data-sort-key="bounce_rate" data-sort-scope="landing">이탈률</th>
-                      <th class="num sortable" data-sort-key="purchase_rate" data-sort-scope="landing">구매율</th>
+                      <th class="num sortable" data-sort-key="purchase_rate" data-sort-scope="landing">구매 전환율</th>
                       <th class="num sortable" data-sort-key="revenue" data-sort-scope="landing">매출</th>
                     </tr>
                   </thead>
@@ -380,7 +386,7 @@
                     <th class="num sortable" data-sort-key="sessions" data-sort-scope="ga4Detail">유입</th>
                     <th class="num sortable" data-sort-key="detail_views" data-sort-scope="ga4Detail">상세조회 세션</th>
                     <th class="num sortable" data-sort-key="purchases" data-sort-scope="ga4Detail">구매</th>
-                    <th class="num">구매율</th>
+                    <th class="num">구매 전환율</th>
                     <th class="num sortable" data-sort-key="revenue" data-sort-scope="ga4Detail">매출</th>
                   </tr>
                 </thead>
@@ -507,7 +513,7 @@
                     <th class="num">유입</th>
                     <th class="num">유입 비중</th>
                     <th class="num">구매</th>
-                    <th class="num">구매율</th>
+                    <th class="num">구매 전환율</th>
                     <th class="num">매출</th>
                     <th class="num">매출 비중</th>
                     <th class="num">평균 객단가</th>
