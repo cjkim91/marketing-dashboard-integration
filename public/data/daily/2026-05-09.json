@@ -4408,7 +4408,7 @@
         "cart_adds": 0,
         "checkout_starts": 76,
         "purchases": 65,
-        "revenue": 874999.995515,
+        "revenue": 874999.9955150001,
         "bounce_rate": 0.1,
         "avg_session_duration": 185.1,
         "bounce_sessions": 0.99,
@@ -4431,7 +4431,7 @@
         "cart_adds": 0,
         "checkout_starts": 11,
         "purchases": 6,
-        "revenue": 255999.99927799997,
+        "revenue": 255999.999278,
         "bounce_rate": 4.47,
         "avg_session_duration": 262.9,
         "bounce_sessions": 13.99,
@@ -9537,26 +9537,6 @@
       },
       {
         "date": "2026-05-09",
-        "campaign_id": "6973000208584",
-        "campaign_name": "CONV_웨비나_전환_260313",
-        "adset_id": "6988249313584",
-        "adset_name": "어드밴티지_이탈리아",
-        "impressions": 0,
-        "reach": 0,
-        "clicks": 0,
-        "spend": 0.0,
-        "conversions": 0,
-        "conversion_value": 0.0,
-        "frequency": 0.0,
-        "ctr": 0,
-        "cvr": 0,
-        "cpc": 0,
-        "cpa": 0,
-        "roas": 0,
-        "cpm": 0
-      },
-      {
-        "date": "2026-05-09",
         "campaign_id": "6787068561584",
         "campaign_name": "CONV_100원 가이드북_250529",
         "adset_id": "52504366251188",
@@ -9640,28 +9620,6 @@
         "cpa": 0,
         "roas": 0.0,
         "cpm": 5661.68
-      },
-      {
-        "date": "2026-05-09",
-        "campaign_id": "6973000208584",
-        "campaign_name": "CONV_웨비나_전환_260313",
-        "adset_id": "6988249313584",
-        "adset_name": "어드밴티지_이탈리아",
-        "ad_id": "6989621160784",
-        "ad_name": "이탈리아_준비불안형",
-        "impressions": 0,
-        "reach": 0,
-        "clicks": 0,
-        "spend": 0.0,
-        "conversions": 0,
-        "conversion_value": 0.0,
-        "frequency": 0.0,
-        "ctr": 0,
-        "cvr": 0,
-        "cpc": 0,
-        "cpa": 0,
-        "roas": 0,
-        "cpm": 0
       },
       {
         "date": "2026-05-09",
@@ -10393,31 +10351,6 @@
         "cpa": 0,
         "roas": 0.0,
         "cpm": 3320.0
-      },
-      {
-        "date": "2026-05-09",
-        "campaign_id": "6973000208584",
-        "campaign_name": "CONV_웨비나_전환_260313",
-        "adset_id": "6988249313584",
-        "adset_name": "어드밴티지_이탈리아",
-        "ad_id": "6989621160784",
-        "ad_name": "이탈리아_준비불안형",
-        "publisher_platform": "facebook",
-        "platform_position": "feed",
-        "placement": "facebook / feed",
-        "impressions": 0,
-        "reach": 0,
-        "clicks": 0,
-        "spend": 0.0,
-        "conversions": 0,
-        "conversion_value": 0.0,
-        "frequency": 0.0,
-        "ctr": 0,
-        "cvr": 0,
-        "cpc": 0,
-        "cpa": 0,
-        "roas": 0,
-        "cpm": 0
       },
       {
         "date": "2026-05-09",
@@ -11571,5 +11504,5 @@
       }
     ]
   },
-  "fetched_at": "2026-05-14T11:24:28.831086+00:00"
+  "fetched_at": "2026-05-15T06:09:04.220755+00:00"
 }
