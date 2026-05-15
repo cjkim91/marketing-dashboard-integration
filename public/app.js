@@ -42,6 +42,10 @@ const state = {
   trendHidden: new Set(),    // 범례에서 비활성화된 그룹 라벨
   heatmapMetric: "roas",     // "roas" | "revenue" | "cvr"
   heatmapCampaign: "",       // "" = 전체, else campaign_name
+  // Meta trend controls
+  metaTrendLevel: "campaigns",  // "campaigns" | "adsets" | "ads" | "placements"
+  metaTrendMetric: "spend",     // "spend" | "impressions" | "clicks" | "conversions" | "conversion_value" | "ctr" | "cpm" | "cpa" | "cpc" | "roas"
+  metaTrendHidden: new Set(),
 };
 
 // ── Theme palette resolver (re-evaluated per render) ─────────────────────────
@@ -173,6 +177,23 @@ function bindControls() {
       state.trendGroup = e.target.value;
       state.trendHidden.clear(); // 그룹 종류가 바뀌면 hidden set 무의미
       renderOverview();
+    });
+  }
+
+  const metaTrendLevel = document.getElementById("metaTrendLevel");
+  if (metaTrendLevel) {
+    metaTrendLevel.addEventListener("change", (e) => {
+      state.metaTrendLevel = e.target.value;
+      state.metaTrendHidden.clear();
+      renderMetaTrend();
+    });
+  }
+
+  const metaTrendMetric = document.getElementById("metaTrendMetric");
+  if (metaTrendMetric) {
+    metaTrendMetric.addEventListener("change", (e) => {
+      state.metaTrendMetric = e.target.value;
+      renderMetaTrend();
     });
   }
 
@@ -692,6 +713,7 @@ function renderTopCampaigns(_unused) {
     <tr class="total-row">
       <td class="name-cell strong">총합 (전체 캠페인)</td>
       <td class="num">${fmtInt(curTotal.impressions)}${inlineDelta(curTotal.impressions, prvTotal.impressions)}</td>
+      <td class="num">${fmtMoney(curTotal.cpm)}${inlineDelta(curTotal.cpm, prvTotal.cpm)}</td>
       <td class="num">${fmtInt(curTotal.clicks)}${inlineDelta(curTotal.clicks, prvTotal.clicks)}</td>
       <td class="num">${fmtPct(curTotal.ctr)}${inlineDelta(curTotal.ctr, prvTotal.ctr, true)}</td>
       <td class="num">${fmtMoney(curTotal.spend)}${inlineDelta(curTotal.spend, prvTotal.spend)}</td>
@@ -708,6 +730,7 @@ function renderTopCampaigns(_unused) {
       <tr>
         <td class="name-cell strong" title="${esc(r.campaign_name)}">${esc(r.campaign_name)}</td>
         <td class="num">${fmtInt(r.impressions)}${p ? inlineDelta(r.impressions, p.impressions) : ""}</td>
+        <td class="num">${fmtMoney(r.cpm)}${p ? inlineDelta(r.cpm, p.cpm) : ""}</td>
         <td class="num">${fmtInt(r.clicks)}${p ? inlineDelta(r.clicks, p.clicks) : ""}</td>
         <td class="num">${fmtPct(r.ctr)}${p ? inlineDelta(r.ctr, p.ctr, true) : ""}</td>
         <td class="num">${fmtMoney(r.spend)}${p ? inlineDelta(r.spend, p.spend) : ""}</td>
@@ -719,7 +742,7 @@ function renderTopCampaigns(_unused) {
   }).join("");
 
   document.getElementById("overviewTopCampaigns").innerHTML =
-    (top.length ? totalRow + rowsHtml : `<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:18px">선택 기간에 데이터 없음</td></tr>`);
+    (top.length ? totalRow + rowsHtml : `<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:18px">선택 기간에 데이터 없음</td></tr>`);
 }
 
 function renderHeatmap(ga4Rows, metaRows) {
@@ -1071,11 +1094,13 @@ function renderMeta() {
   const ds = dailySeries(rows, ["spend", "impressions", "clicks", "conversions"]);
   const cpaSpark = dailyDerived(rows, (d) => d.conversions ? d.spend / d.conversions : 0);
   const roasSpark = dailyDerived(rows, (d) => d.spend ? d.conversion_value / d.spend : 0);
+  const cpmSpark = dailyDerived(rows, (d) => d.impressions ? d.spend / d.impressions * 1000 : 0);
 
   // KPI band
   renderKpis("metaKpis", [
     kpi("광고비",  totals.spend, "Spend", prev.spend, fmtMoney, ds.spend, true, "warning"),
     kpi("노출",    totals.impressions, "Impressions", prev.impressions, fmtInt, ds.impressions, false, "primary"),
+    kpi("CPM",     totals.cpm, "Cost / 1K Impr.", prev.cpm, fmtMoney, cpmSpark, true, "warning"),
     kpi("클릭",    totals.clicks, "Clicks", prev.clicks, fmtInt, ds.clicks, false, "primary"),
     kpi("전환",    totals.conversions, "Conversions", prev.conversions, fmtInt, ds.conversions, false, "positive"),
     kpi("CPA",     totals.cpa, "Cost / Conversion", prev.cpa, fmtMoney, cpaSpark, true, "warning"),
@@ -1089,8 +1114,8 @@ function renderMeta() {
   lineChartMini("chartMetaCpa",  "metaTCpa",  cpaRows,  "cpa",  fmtMoney,   "warning");
   lineChartMini("chartMetaRoas", "metaTRoas", byPeriod, "roas", fmtDecimal, "violet");
 
-  // Movers
-  renderMetaMovers(allRows);
+  // 광고 지표 추이 (단위·지표 셀렉터 + 토글 범례)
+  renderMetaTrend();
 
   // Placement heatmap
   renderMetaPlacementHeat();
@@ -1139,9 +1164,9 @@ function renderMetaReview() {
   document.getElementById("metaReviewHead").innerHTML = `
     <tr>
       ${entityHeaders}
-      <th>상태</th>
       <th class="num">광고비</th>
       <th class="num">노출</th>
+      <th class="num">CPM</th>
       <th class="num">CTR</th>
       <th class="num">전환</th>
       <th class="num">CVR</th>
@@ -1154,7 +1179,6 @@ function renderMetaReview() {
   document.getElementById("metaReviewTable").innerHTML = filtered.slice(0, 80).map((row) => {
     const pk = keys.map((k) => row[k] || "").join("||");
     const p  = prevMap.get(pk);
-    const status = metaStatus(row, total.roas);
     const roasCls = roasClass(row.roas, total.roas);
     const cpaCls  = cpaClass(row.cpa, total.cpa);
     const entityCells = keys.map((k) => {
@@ -1167,9 +1191,9 @@ function renderMetaReview() {
     return `
       <tr>
         ${entityCells}
-        <td><span class="status-badge ${status.cls}">${status.label}</span></td>
         <td class="num">${fmtMoney(row.spend)}${p ? inlineDelta(row.spend, p.spend) : ""}</td>
         <td class="num">${fmtInt(row.impressions)}${p ? inlineDelta(row.impressions, p.impressions) : ""}</td>
+        <td class="num">${fmtMoney(row.cpm)}${p ? inlineDelta(row.cpm, p.cpm) : ""}</td>
         <td class="num">${fmtPct(row.ctr)}${p ? inlineDelta(row.ctr, p.ctr, true) : ""}</td>
         <td class="num">${fmtInt(row.conversions)}${p ? inlineDelta(row.conversions, p.conversions) : ""}</td>
         <td class="num">${fmtPct(row.cvr)}${p ? inlineDelta(row.cvr, p.cvr, true) : ""}</td>
@@ -1181,32 +1205,150 @@ function renderMetaReview() {
   }).join("");
 }
 
-function renderMetaMovers(allRows) {
-  const keys = ["campaign_name"];
-  const current = aggregateRows(filterByDate(allRows), keys, { spend: "sum", conversions: "sum", conversion_value: "sum" });
-  const prev    = aggregateRows(filterByDateRange(allRows, ...prevPeriodWindow()), keys, { spend: "sum", conversions: "sum", conversion_value: "sum" });
-  const prevMap = new Map(prev.map((r) => [r.campaign_name, r]));
+// ── Meta entity name resolver ───────────────────────────────────────────────
+function metaEntityName(level, r) {
+  if (level === "campaigns")  return r.campaign_name || "(unknown)";
+  if (level === "adsets")     return r.adset_name    || "(unknown)";
+  if (level === "ads")        return r.ad_name       || "(unknown)";
+  if (level === "placements") return `${r.publisher_platform || "?"} · ${r.platform_position || "?"}`;
+  return "(unknown)";
+}
 
-  const movers = current.map((r) => {
-    const p = prevMap.get(r.campaign_name) || { spend: 0, conversions: 0, conversion_value: 0 };
-    const diff = r.spend - p.spend;
-    const pct = p.spend ? (diff / p.spend) * 100 : (r.spend > 0 ? 100 : 0);
-    return { ...r, prev: p, diff, pct };
-  }).filter((r) => r.spend > 0 || r.prev.spend > 0);
+// ── 광고 지표 추이 (캠페인/광고세트/광고/지면 단위 + 지표 셀렉터 + 토글 범례)
+function renderMetaTrend() {
+  const level = state.metaTrendLevel;
+  const metric = state.metaTrendMetric;
+  const allRows = state.data.meta?.[level] || [];
+  const rows = filterByDate(allRows);
 
-  movers.sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff));
-  const top = movers.slice(0, 6);
+  const enriched = rows.map((r) => ({ ...r, _entity: metaEntityName(level, r) }));
 
-  document.getElementById("metaMovers").innerHTML = top.map((r) => `
-    <div class="mover ${r.diff > 0 ? "up" : r.diff < 0 ? "down" : ""}">
-      <div>
-        <div class="mover-name" title="${esc(r.campaign_name)}">${esc(r.campaign_name)}</div>
-        <div class="mover-meta">현재 ${fmtMoney(r.spend)} · 전기 ${fmtMoney(r.prev.spend)}</div>
-      </div>
-      <div class="mover-current">${fmtInt(r.conversions)} 전환</div>
-      <div class="mover-delta">${r.diff > 0 ? "▲" : r.diff < 0 ? "▼" : "—"} ${Math.abs(r.pct).toFixed(0)}%</div>
-    </div>
-  `).join("") || `<div style="color:var(--muted);padding:14px;text-align:center">전기간 비교 데이터 부족</div>`;
+  // 상위 N (광고비 기준) + 기타
+  const entityTotals = new Map();
+  enriched.forEach((r) => {
+    entityTotals.set(r._entity, (entityTotals.get(r._entity) || 0) + (r.spend || 0));
+  });
+  const topEntities = Array.from(entityTotals.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 6)
+    .map(([e]) => e);
+  const hasOthers = entityTotals.size > topEntities.length;
+  const allEntities = hasOthers ? [...topEntities, "기타"] : topEntities;
+
+  // 색 매핑 고정
+  const pal = palette();
+  const colors = pal.channelArr;
+  const colorMap = new Map();
+  allEntities.forEach((e, i) => {
+    colorMap.set(e, e === "기타" ? "#94A3B8" : colors[i % colors.length]);
+  });
+  const colorFor = (e) => colorMap.get(e) || "#94A3B8";
+
+  // 토글 범례
+  const legendEl = document.getElementById("metaTrendLegend");
+  if (legendEl) {
+    legendEl.innerHTML = allEntities.map((e) => {
+      const hidden = state.metaTrendHidden.has(e);
+      return `<button type="button" class="trend-legend-item${hidden ? " is-hidden" : ""}" data-meta-trend-toggle="${esc(e)}" title="클릭으로 표시/숨김">
+        <span class="swatch" style="background:${hidden ? "var(--muted-2)" : colorFor(e)}"></span>${esc(e)}
+      </button>`;
+    }).join("");
+    legendEl.querySelectorAll("[data-meta-trend-toggle]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const k = btn.dataset.metaTrendToggle;
+        if (state.metaTrendHidden.has(k)) state.metaTrendHidden.delete(k);
+        else state.metaTrendHidden.add(k);
+        renderMetaTrend();
+      });
+    });
+  }
+
+  const visibleEntities = allEntities.filter((e) => !state.metaTrendHidden.has(e));
+  const drawEntities = visibleEntities.length ? visibleEntities : allEntities;
+
+  // 기간 × _entity 집계 (rate 메트릭은 합산 후 재계산)
+  const grouped = aggregateRows(enriched, ["period", "_entity"], {
+    impressions: "sum", clicks: "sum", spend: "sum",
+    conversions: "sum", conversion_value: "sum",
+  });
+  grouped.forEach(addMetaRates);
+  const periods = Array.from(new Set(grouped.map((r) => r.period))).sort();
+  const byKey = new Map();
+  grouped.forEach((r) => byKey.set(`${r.period}||${r._entity}`, r));
+
+  // 기타 합산 후 rate 재계산
+  const otherByPeriod = new Map(periods.map((p) => [p, {
+    impressions: 0, clicks: 0, spend: 0, conversions: 0, conversion_value: 0,
+  }]));
+  if (hasOthers) {
+    grouped.forEach((r) => {
+      if (topEntities.includes(r._entity)) return;
+      const t = otherByPeriod.get(r.period);
+      t.impressions      += r.impressions      || 0;
+      t.clicks           += r.clicks           || 0;
+      t.spend            += r.spend            || 0;
+      t.conversions      += r.conversions      || 0;
+      t.conversion_value += r.conversion_value || 0;
+    });
+    otherByPeriod.forEach((v) => addMetaRates(v));
+  }
+
+  const cellOf = (period, entity) => {
+    if (entity === "기타") return otherByPeriod.get(period) || {};
+    return byKey.get(`${period}||${entity}`) || {};
+  };
+
+  // 포맷터
+  const moneyMetrics = new Set(["spend", "conversion_value", "cpm", "cpa", "cpc"]);
+  const pctMetrics   = new Set(["ctr", "cvr"]);
+  const decMetrics   = new Set(["roas"]);
+  let formatter;
+  if (moneyMetrics.has(metric))      formatter = fmtMoney;
+  else if (pctMetrics.has(metric))   formatter = (v) => `${Number(v || 0).toFixed(2)}%`;
+  else if (decMetrics.has(metric))   formatter = fmtDecimal;
+  else                               formatter = fmtInt;
+
+  const datasets = drawEntities.map((e) => {
+    const color = colorFor(e);
+    return {
+      label: e,
+      data: periods.map((p) => Number(cellOf(p, e)[metric] || 0)),
+      borderColor: color,
+      backgroundColor: color + "33",
+      fill: false,
+      tension: 0.32,
+      pointRadius: periods.length <= 14 ? 2 : 0,
+      pointHoverRadius: 4,
+      pointBackgroundColor: color,
+      borderWidth: 1.8,
+    };
+  });
+
+  destroyChart("chartMetaTrend");
+  const canvas = document.getElementById("chartMetaTrend");
+  if (!canvas) return;
+  state.charts.chartMetaTrend = new Chart(canvas, {
+    type: "line",
+    data: { labels: periods, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: "index", intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: (ctx) => ` ${ctx.dataset.label}: ${formatter(ctx.raw)}` } },
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { maxTicksLimit: 8, maxRotation: 0 } },
+        y: {
+          beginAtZero: true,
+          grid: { color: palette().grid },
+          border: { display: false },
+          ticks: { maxTicksLimit: 5, callback: (v) => formatter(v) },
+        },
+      },
+    },
+  });
 }
 
 function renderMetaPlacementHeat() {

@@ -144,6 +144,7 @@
                     <tr>
                       <th>캠페인</th>
                       <th class="num">노출</th>
+                      <th class="num">CPM</th>
                       <th class="num">클릭</th>
                       <th class="num">CTR</th>
                       <th class="num">광고비</th>
@@ -432,27 +433,47 @@
             </div>
           </section>
 
-          <section class="grid-2">
-            <article class="card">
-              <header class="card-head">
-                <div>
-                  <h2>주요 변동</h2>
-                  <p class="card-sub">전기간 대비 비용 증감이 큰 캠페인</p>
-                </div>
-              </header>
-              <div id="metaMovers" class="movers"></div>
-            </article>
+          <!-- 광고 지표 추이 (단위·지표 셀렉터 + 토글 범례) -->
+          <article class="card">
+            <header class="card-head with-controls">
+              <div>
+                <h2>광고 지표 추이</h2>
+                <p class="card-sub">단위와 지표를 선택해 비교 — 범례 클릭으로 표시/숨김</p>
+              </div>
+              <div class="card-head-controls">
+                <select id="metaTrendLevel" class="select-input" aria-label="단위">
+                  <option value="campaigns">캠페인</option>
+                  <option value="adsets">광고세트</option>
+                  <option value="ads">광고</option>
+                  <option value="placements">지면</option>
+                </select>
+                <select id="metaTrendMetric" class="select-input" aria-label="지표">
+                  <option value="spend">광고비</option>
+                  <option value="impressions">노출</option>
+                  <option value="clicks">클릭</option>
+                  <option value="conversions">전환</option>
+                  <option value="conversion_value">매출</option>
+                  <option value="ctr">CTR</option>
+                  <option value="cpm">CPM</option>
+                  <option value="cpa">CPA</option>
+                  <option value="cpc">CPC</option>
+                  <option value="roas">ROAS</option>
+                </select>
+              </div>
+            </header>
+            <div id="metaTrendLegend" class="trend-legend"></div>
+            <div class="chart-tall"><canvas id="chartMetaTrend"></canvas></div>
+          </article>
 
-            <article class="card">
-              <header class="card-head">
-                <div>
-                  <h2>지면 효율</h2>
-                  <p class="card-sub">Publisher × Position · ROAS 기준</p>
-                </div>
-              </header>
-              <div id="metaPlacementHeat" class="placement-heat"></div>
-            </article>
-          </section>
+          <article class="card">
+            <header class="card-head">
+              <div>
+                <h2>지면 효율</h2>
+                <p class="card-sub">Publisher × Position · ROAS 기준</p>
+              </div>
+            </header>
+            <div id="metaPlacementHeat" class="placement-heat"></div>
+          </article>
 
           <section class="card">
             <header class="card-head with-controls">
