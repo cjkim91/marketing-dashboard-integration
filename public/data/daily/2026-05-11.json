@@ -4252,7 +4252,7 @@
         "cart_adds": 0,
         "checkout_starts": 69,
         "purchases": 56,
-        "revenue": 1064899.998083,
+        "revenue": 1064899.9980829998,
         "bounce_rate": 0.48,
         "avg_session_duration": 156.9,
         "bounce_sessions": 4.99,
@@ -11699,5 +11699,5 @@
       }
     ]
   },
-  "fetched_at": "2026-05-16T10:42:40.944516+00:00"
+  "fetched_at": "2026-05-17T06:01:03.426015+00:00"
 }
