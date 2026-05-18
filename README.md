@@ -1,4 +1,4 @@
-# Pulse · Marketing Dashboard
+# 투어라이브 마케팅 대시보드
 
 GA4와 Meta Marketing API를 연결해 **항상 전일자(D-1, KST)까지** 조회 가능한
 정적 HTML 대시보드를 GitHub Pages로 배포한다.
@@ -166,4 +166,4 @@ META_API_VERSION                      # 선택, 기본 v25.0 (Meta가 2026-06-09
 - [Meta 재사용 노트](docs/META_REUSE_NOTES.md)
 - [데이터 연결 체크리스트](docs/DATA_CONNECTION_CHECKLIST.md)
 - [데이터 연동 설계안](DATA_INTEGRATION_PLAN.md)
-- [Pulse 디자인 시스템](DESIGN.md)
+- [디자인 시스템](DESIGN.md)

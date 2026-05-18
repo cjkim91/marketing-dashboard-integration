@@ -1,5 +1,5 @@
 ---
-name: "Pulse · Marketing Performance"
+name: "투어라이브 마케팅 대시보드"
 version: "2.0"
 mode: "light + dark"
 tokens:
@@ -13,11 +13,11 @@ tokens:
     violet:   "#7C3AED"
 ---
 
-# Pulse — Marketing Performance Dashboard
+# 투어라이브 마케팅 대시보드
 
 ## Essence
 
-Pulse는 GA4와 Meta 광고 데이터를 한 화면에서 비교하며,
+본 대시보드는 GA4와 Meta 광고 데이터를 한 화면에서 비교하며,
 어제까지의 성과를 매일 자동으로 갱신해 보여주는 마케팅 운영용 대시보드다.
 운영자가 의사결정에 필요한 데이터를 빠르게 찾고,
 계정 평균과의 거리, 전기간 대비 변화, 채널·캠페인별 효율을

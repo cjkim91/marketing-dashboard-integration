@@ -1,4 +1,4 @@
-# Pulse · Marketing Dashboard — Project Context
+# 투어라이브 마케팅 대시보드 — Project Context
 
 이 파일은 Claude Code가 세션 시작 시 자동으로 읽는 프로젝트 컨텍스트다.
 Cowork 세션에서 시작해 이어받은 작업으로, 현재 상태와 미완 작업이 정리되어 있다.
