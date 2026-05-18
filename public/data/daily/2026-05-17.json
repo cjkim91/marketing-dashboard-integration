@@ -6822,19 +6822,19 @@
         "date": "2026-05-17",
         "campaign_id": "6921538775784",
         "campaign_name": "CONV_셀프투어_251204",
-        "impressions": 5665,
-        "reach": 4605,
+        "impressions": 5666,
+        "reach": 4613,
         "clicks": 97,
         "spend": 34427.0,
         "conversions": 0,
         "conversion_value": 0.0,
         "frequency": 0.0,
-        "ctr": 1.7123,
+        "ctr": 1.712,
         "cvr": 0.0,
         "cpc": 354.92,
         "cpa": 0,
         "roas": 0.0,
-        "cpm": 6077.14
+        "cpm": 6076.07
       },
       {
         "date": "2026-05-17",
@@ -6882,19 +6882,19 @@
         "campaign_name": "CONV_셀프투어_251204",
         "adset_id": "6937910255384",
         "adset_name": "260105_미술관",
-        "impressions": 5665,
-        "reach": 4605,
+        "impressions": 5666,
+        "reach": 4613,
         "clicks": 97,
         "spend": 34427.0,
         "conversions": 0,
         "conversion_value": 0.0,
         "frequency": 1.23,
-        "ctr": 1.7123,
+        "ctr": 1.712,
         "cvr": 0.0,
         "cpc": 354.92,
         "cpa": 0,
         "roas": 0.0,
-        "cpm": 6077.14
+        "cpm": 6076.07
       },
       {
         "date": "2026-05-17",
@@ -6968,19 +6968,19 @@
         "adset_name": "260105_미술관",
         "ad_id": "6967505324184",
         "ad_name": "미리보기_품질증명형_비너스탄생",
-        "impressions": 5665,
-        "reach": 4605,
+        "impressions": 5666,
+        "reach": 4613,
         "clicks": 97,
         "spend": 34427.0,
         "conversions": 0,
         "conversion_value": 0.0,
         "frequency": 1.23,
-        "ctr": 1.7123,
+        "ctr": 1.712,
         "cvr": 0.0,
         "cpc": 354.92,
         "cpa": 0,
         "roas": 0.0,
-        "cpm": 6077.14
+        "cpm": 6076.07
       },
       {
         "date": "2026-05-17",
@@ -7549,19 +7549,19 @@
         "publisher_platform": "instagram",
         "platform_position": "instagram_explore_grid_home",
         "placement": "instagram / instagram_explore_grid_home",
-        "impressions": 2225,
+        "impressions": 2226,
         "reach": 0,
         "clicks": 2,
         "spend": 1471.0,
         "conversions": 0,
         "conversion_value": 0.0,
         "frequency": 0.0,
-        "ctr": 0.0899,
+        "ctr": 0.0898,
         "cvr": 0.0,
         "cpc": 735.5,
         "cpa": 0,
         "roas": 0.0,
-        "cpm": 661.12
+        "cpm": 660.83
       },
       {
         "date": "2026-05-17",
@@ -8715,5 +8715,5 @@
       }
     ]
   },
-  "fetched_at": "2026-05-18T09:52:19.962311+00:00"
+  "fetched_at": "2026-05-18T12:50:31.334659+00:00"
 }
