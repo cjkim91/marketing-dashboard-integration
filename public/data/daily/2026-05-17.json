@@ -6840,19 +6840,19 @@
         "date": "2026-05-17",
         "campaign_id": "6973000208584",
         "campaign_name": "CONV_웨비나_전환_260313",
-        "impressions": 1784,
+        "impressions": 1785,
         "reach": 1505,
         "clicks": 42,
-        "spend": 22804.0,
+        "spend": 22806.0,
         "conversions": 0,
         "conversion_value": 0.0,
         "frequency": 0.0,
-        "ctr": 2.3543,
+        "ctr": 2.3529,
         "cvr": 0.0,
-        "cpc": 542.95,
+        "cpc": 543.0,
         "cpa": 0,
         "roas": 0.0,
-        "cpm": 12782.51
+        "cpm": 12776.47
       }
     ],
     "adsets": [
@@ -6922,19 +6922,19 @@
         "campaign_name": "CONV_웨비나_전환_260313",
         "adset_id": "52505952288188",
         "adset_name": "어드밴티지_스페인_v3",
-        "impressions": 1784,
+        "impressions": 1785,
         "reach": 1505,
         "clicks": 42,
-        "spend": 22804.0,
+        "spend": 22806.0,
         "conversions": 0,
         "conversion_value": 0.0,
         "frequency": 1.19,
-        "ctr": 2.3543,
+        "ctr": 2.3529,
         "cvr": 0.0,
-        "cpc": 542.95,
+        "cpc": 543.0,
         "cpa": 0,
         "roas": 0.0,
-        "cpm": 12782.51
+        "cpm": 12776.47
       }
     ],
     "ads": [
@@ -7056,19 +7056,19 @@
         "adset_name": "어드밴티지_스페인_v3",
         "ad_id": "52505952286988",
         "ad_name": "스페인_준비불안형",
-        "impressions": 1332,
+        "impressions": 1333,
         "reach": 1164,
         "clicks": 24,
-        "spend": 15051.0,
+        "spend": 15053.0,
         "conversions": 0,
         "conversion_value": 0.0,
-        "frequency": 1.14,
-        "ctr": 1.8018,
+        "frequency": 1.15,
+        "ctr": 1.8005,
         "cvr": 0.0,
-        "cpc": 627.12,
+        "cpc": 627.21,
         "cpa": 0,
         "roas": 0.0,
-        "cpm": 11299.55
+        "cpm": 11292.57
       },
       {
         "date": "2026-05-17",
@@ -8149,19 +8149,19 @@
         "publisher_platform": "facebook",
         "platform_position": "feed",
         "placement": "facebook / feed",
-        "impressions": 265,
+        "impressions": 266,
         "reach": 0,
         "clicks": 6,
-        "spend": 2995.0,
+        "spend": 2997.0,
         "conversions": 0,
         "conversion_value": 0.0,
         "frequency": 0.0,
-        "ctr": 2.2642,
+        "ctr": 2.2556,
         "cvr": 0.0,
-        "cpc": 499.17,
+        "cpc": 499.5,
         "cpa": 0,
         "roas": 0.0,
-        "cpm": 11301.89
+        "cpm": 11266.92
       },
       {
         "date": "2026-05-17",
@@ -8715,5 +8715,5 @@
       }
     ]
   },
-  "fetched_at": "2026-05-18T08:40:44.145137+00:00"
+  "fetched_at": "2026-05-18T09:09:44.633299+00:00"
 }
