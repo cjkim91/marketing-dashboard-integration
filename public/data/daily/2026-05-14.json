@@ -8537,6 +8537,84 @@
         "bounce_sessions": 0.0,
         "total_duration": 5.3,
         "purchase_rate": 0.0
+      },
+      {
+        "date": "2026-05-14",
+        "landing_page": "/tour/1262/도쿄-여행-전-꼭-알아야-할-필수기초지식",
+        "sessions": 1,
+        "users": 1,
+        "purchases": 0,
+        "revenue": 0.0,
+        "bounce_rate": 0.0,
+        "avg_session_duration": 1.3,
+        "bounce_sessions": 0.0,
+        "total_duration": 1.3,
+        "purchase_rate": 0.0
+      },
+      {
+        "date": "2026-05-14",
+        "landing_page": "/tour/1270/영국-박물관대영-박물관-핵심-투어-41작품소개",
+        "sessions": 1,
+        "users": 1,
+        "purchases": 0,
+        "revenue": 0.0,
+        "bounce_rate": 0.0,
+        "avg_session_duration": 3.9,
+        "bounce_sessions": 0.0,
+        "total_duration": 3.9,
+        "purchase_rate": 0.0
+      },
+      {
+        "date": "2026-05-14",
+        "landing_page": "/tour/1273",
+        "sessions": 1,
+        "users": 1,
+        "purchases": 0,
+        "revenue": 0.0,
+        "bounce_rate": 0.0,
+        "avg_session_duration": 4.7,
+        "bounce_sessions": 0.0,
+        "total_duration": 4.7,
+        "purchase_rate": 0.0
+      },
+      {
+        "date": "2026-05-14",
+        "landing_page": "/tour/1276",
+        "sessions": 1,
+        "users": 1,
+        "purchases": 0,
+        "revenue": 0.0,
+        "bounce_rate": 0.0,
+        "avg_session_duration": 89.6,
+        "bounce_sessions": 0.0,
+        "total_duration": 89.6,
+        "purchase_rate": 0.0
+      },
+      {
+        "date": "2026-05-14",
+        "landing_page": "/tour/1277",
+        "sessions": 1,
+        "users": 1,
+        "purchases": 0,
+        "revenue": 0.0,
+        "bounce_rate": 0.0,
+        "avg_session_duration": 78.3,
+        "bounce_sessions": 0.0,
+        "total_duration": 78.3,
+        "purchase_rate": 0.0
+      },
+      {
+        "date": "2026-05-14",
+        "landing_page": "/tour/1279",
+        "sessions": 1,
+        "users": 1,
+        "purchases": 0,
+        "revenue": 0.0,
+        "bounce_rate": 0.0,
+        "avg_session_duration": 25.4,
+        "bounce_sessions": 0.0,
+        "total_duration": 25.4,
+        "purchase_rate": 0.0
       }
     ]
   },
@@ -10285,5 +10363,5 @@
       }
     ]
   },
-  "fetched_at": "2026-05-18T00:15:26.940713+00:00"
+  "fetched_at": "2026-05-18T06:37:40.971810+00:00"
 }
