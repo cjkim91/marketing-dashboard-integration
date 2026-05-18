@@ -915,7 +915,9 @@ def main() -> None:
     # ── Merge all daily files → dashboard.json ────────────────────────────────
     merged = merge_daily_files(daily_dir, args.ga4_property_id, account_id)
     output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(json.dumps(merged, ensure_ascii=False, indent=2))
+    # frontend가 fetch하는 단일 파일. Cloudflare Pages의 파일당 25 MiB 제한을 안전히
+    # 피하기 위해 minify해서 기록한다 (가독성보다 크기·로드 속도 우선).
+    output.write_text(json.dumps(merged, ensure_ascii=False, separators=(",", ":")))
     period = merged.get("period", {})
     print(
         f"Wrote {output}  ({period.get('since')} → {period.get('until')}, "
