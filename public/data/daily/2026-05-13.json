@@ -222,7 +222,7 @@
         "detail_views": 17,
         "checkout_starts": 4,
         "purchases": 3,
-        "revenue": 138999.998772,
+        "revenue": 138999.99877200002,
         "bounce_rate": 9.09,
         "avg_session_duration": 468.1,
         "engagement_rate": 90.91,
@@ -4486,7 +4486,7 @@
         "cart_adds": 0,
         "checkout_starts": 66,
         "purchases": 54,
-        "revenue": 1138800.0000920002,
+        "revenue": 1138800.000092,
         "bounce_rate": 1.05,
         "avg_session_duration": 194.1,
         "bounce_sessions": 10.01,
@@ -4553,7 +4553,7 @@
         "sessions": 155,
         "users": 142,
         "purchases": 12,
-        "revenue": 490799.9978699999,
+        "revenue": 490799.99786999996,
         "bounce_rate": 0.0,
         "avg_session_duration": 368.9,
         "bounce_sessions": 0.0,
@@ -12065,5 +12065,5 @@
       }
     ]
   },
-  "fetched_at": "2026-05-18T12:50:31.334659+00:00"
+  "fetched_at": "2026-05-19T06:33:01.104521+00:00"
 }
